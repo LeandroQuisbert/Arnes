@@ -262,7 +262,7 @@ Se eliminó `parent_id` para evitar inconsistencias en cables que cruzan contene
 |------|---------------|-------------|------|----------|-------------|
 | W001 | C002, 1       | C003, 1     | N001 | 150 mm   | Cable interno Caja 1 |
 | W002 | C004, 1       | C005, 1     | N001 | 400 mm   | Latiguillo externo |
-| W003 | C007, 2       | C006, 2     | N001 | 180 mm   | Cable interno Caja 2 |
+| W003 | C006, 1       | C007, 2     | N001 | 180 mm   | Cable interno Caja 2 |
 
 #### 5.3 Visualización y comportamiento
 
