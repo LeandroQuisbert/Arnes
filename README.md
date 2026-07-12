@@ -1,4 +1,4 @@
-## VERSIÓN 1.4 – DOCUMENTACIÓN DE ARQUITECTURA DEL VISUALIZADOR DE ARNÉS
+## VERSIÓN 1.5 – DOCUMENTACIÓN DE ARQUITECTURA DEL VISUALIZADOR DE ARNÉS
 
 ---
 
@@ -122,20 +122,20 @@ El movimiento solidario en tiempo real evita parpadeos. No se modifica el tamañ
 
 ##### 3.3.2.3 Comportamiento de conectores anclados durante el redimensionamiento
 
-3.3.2.3.1. Un conector anclado **conserva su distancia respecto a la esquina más cercana del borde que no se está estirando**.  
+3.3.2.3.1. Un conector anclado **conserva su distancia respecto a la esquina del borde que permanece fija durante el estiramiento**. La esquina fija es aquella que no es arrastrada por el tirador de redimensión.  
 3.3.2.3.2. **Ejemplo concreto** (borde derecho, estiramiento vertical hacia abajo):  
- a. Conector en borde derecho (`edgeSide: "right"`) de un PCB.  
- b. Si el PCB se estira solo hacia abajo (aumenta su altura, esquina superior izquierda fija), el borde derecho se alarga.  
- c. La esquina superior derecha no se ha movido.  
- d. La distancia desde el centro del conector hasta la esquina superior derecha permanece constante.  
- e. El conector se desplaza verticalmente la misma cantidad que el estiramiento.  
-3.3.2.3.3. Regla general:  
- a. Si se estira un eje paralelo al borde, se mantiene la distancia al extremo fijo.  
- b. Si el estiramiento es perpendicular al borde, el conector no se mueve (el borde no se desplaza).  
-3.3.2.3.4. Esta regla sustituye al antiguo concepto de “posición porcentual”.
+ a. Conector en el borde derecho (`edgeSide: "right"`) de un contenedor.  
+ b. Si el contenedor se estira **solo hacia abajo** (aumenta su altura, manteniendo fija la esquina superior izquierda), el borde derecho se alarga.  
+ c. La esquina superior derecha **no se mueve**.  
+ d. La distancia desde el centro del conector hasta esa esquina superior derecha **permanece constante**.  
+ e. **Por tanto, el conector no se desplaza.** El borde se estira por debajo de él, pero su posición absoluta no cambia.  
+3.3.2.3.3. Regla general para cualquier borde:  
+ a. Si se estira un eje **paralelo** al borde donde está anclado el conector, se toma como referencia la esquina más cercana que **no** está siendo desplazada por el estiramiento. La distancia a esa esquina se mantiene, por lo que el conector **no se mueve** en la dirección del estiramiento.  
+ b. Si el estiramiento es **perpendicular** al borde, el borde mismo no se desplaza lateralmente, así que el conector **no cambia de posición**.  
+3.3.2.3.4. En resumen, los conectores anclados permanecen fijos en su lugar durante el redimensionamiento, manteniendo su relación con la esquina fija más cercana. Esto evita desplazamientos inesperados y simplifica la edición, ya que solo cambia la longitud del contenedor sin alterar la posición de los elementos montados en sus bordes.
 
 **Memoria de diseño – 3.3.2**  
-Redimensionamiento desde cualquier borde para máxima flexibilidad. La regla de distancia a esquina fija evita comportamientos contraintuitivos que tenía el método porcentual.
+La regla actual corrige la redacción confusa de la versión 1.4, donde se afirmaba erróneamente que el conector se desplazaba. En realidad, al estar anclado a un borde y referenciado a una esquina que no se mueve, permanece inmóvil. Esto modela fielmente el comportamiento de un conector atornillado a un panel: si el panel se estira hacia abajo, el conector no cambia de sitio. La versión anterior generaba una paradoja geométrica que quedaba resuelta con esta aclaración.
 
 ---
 
@@ -190,9 +190,9 @@ Se eliminó la restricción direccional de género; solo importa que sean comple
 
 | ID   | Nombre       | Padre | Designator | Pines | Género | EdgeSide | Posición (x, y, w, h) | matedId | Notes | Hidden |
 |------|--------------|-------|------------|-------|--------|----------|------------------------|---------|-------|--------|
-| C001 | Molex 2P     | T300  | J1         | 2     | male   | right    | 548, 360, 180, 115    | M001    | –     | false  |
+| C001 | Molex 2P     | T300  | J1         | 2     | male   | right    | 408, 360, 180, 115    | M001    | –     | false  |
 | C002 | Molex 2P     | T200  | J2         | 2     | female | null     | 588, 360, 180, 115    | M001    | –     | false  |
-| C003 | GX12         | T200  | J3         | 2     | female | right    | 1060, 900, 180, 115   | M002    | –     | false  |
+| C003 | GX12         | T200  | J3         | 2     | female | right    | 910, 900, 180, 115    | M002    | –     | false  |
 | C004 | GX12         | T100  | J4         | 2     | male   | null     | 1240, 900, 180, 115   | M002    | –     | false  |
 | C005 | GX12 4P      | T100  | J5         | 4     | male   | null     | 1463, 900, 180, 115   | M003    | –     | false  |
 | C006 | GX12 4P      | T201  | J6         | 4     | female | left     | 1643, 900, 180, 115   | M003    | –     | false  |
@@ -201,7 +201,7 @@ Se eliminó la restricción direccional de género; solo importa que sean comple
 | C009 | Molex 2P     | T301  | J9         | 2     | female | left     | 1890, 540, 180, 115   | null    | [{"date":"2026-07-12","user":"Leo","text":"Reserva para faro auxiliar"}] | false  |
 
 **Memoria de diseño – 4.3**  
-Se reemplazó `expectedPair` por `matedId`. Los conectores C001‑C008 referencian directamente al M que los une. C009 está libre y tiene una nota de ejemplo en el nuevo formato histórico. El campo `hidden` se mantiene como opcional. La ausencia de un campo de estado es intencionada: el estado se deduce de la presencia de `matedId` y del `status` del M asociado.
+Las coordenadas de los conectores anclados han sido ajustadas para cumplir la regla 4.4.1 (conector completamente dentro del contenedor, cara de pines en el borde). En versiones anteriores C001 y C003 sobresalían de sus contenedores; ahora sus posiciones corrigen ese error. C001 se ubica en x=408 para que su lado derecho coincida con el borde derecho de T300 (588). C003 se sitúa en x=910 para que su lado derecho coincida con el borde derecho de T200 (1090). El resto de conectores anclados ya cumplían la restricción.
 
 #### 4.4 Posicionamiento de conectores anclados
 
@@ -281,15 +281,16 @@ Define una unión macho‑hembra entre dos conectores. Unión rígida: los conec
 
 **Tabla 8 – Atributos de un mated**
 
-| Campo  | Tipo   | Descripción |
-|--------|--------|-------------|
-| id     | string | M001, M002… |
-| type   | string | `"mated"` |
-| from   | object | `{ connector: "C001", pin: 1 }` |
-| to     | object | `{ connector: "C002", pin: 1 }` |
-| net    | string | ID del net que transporta |
-| status | string | `"connected"`, `"planned"`, `"disconnected"`, `"obsolete"` |
-| notes  | array  | Histórico de notas |
+| Campo      | Tipo   | Descripción |
+|------------|--------|-------------|
+| id         | string | M001, M002… |
+| type       | string | `"mated"` |
+| from       | object | `{ connector: "C001", pin: 1 }` |
+| to         | object | `{ connector: "C002", pin: 1 }` |
+| net        | string | ID del net que transporta |
+| status     | string | `"connected"`, `"planned"`, `"disconnected"`, `"obsolete"` |
+| pinMapping | string / null | `"direct"` (pin a pin igual), `"reversed"` (invertido), o `null` si no se especifica (opcional) |
+| notes      | array  | Histórico de notas |
 
 #### 6.2 Significado de `status`
 
@@ -304,18 +305,22 @@ Define una unión macho‑hembra entre dos conectores. Unión rígida: los conec
 
 6.3.1. Los dos conectores deben tener géneros opuestos.  
 6.3.2. Si un conector tiene `matedId`, ese ID debe coincidir con el M que lo incluye.  
-6.3.3. El sistema verificará la coherencia al cargar: cada M debe ser referenciado por sus dos conectores.
+6.3.3. El sistema verificará la coherencia al cargar: cada M debe ser referenciado por sus dos conectores.  
+6.3.4. **Mapeo de pines (nuevo en v1.5):**  
+ a. Si `pinMapping` es `"direct"`, el acople respeta el orden natural: el pin 1 de un conector se conecta con el pin 1 del otro, el 2 con el 2, y así sucesivamente. El sistema validará que los pines declarados en `from` y `to` cumplan esta correspondencia.  
+ b. Si `pinMapping` es `"reversed"`, el orden se invierte: pin 1 con pin N, pin 2 con N‑1, etc., siendo N el número de pines del conector más pequeño.  
+ c. Si `pinMapping` es `null` o no se define, no se aplica esta validación automática y se aceptan los pines explícitos tal cual se declaren.
 
 #### 6.4 Tabla de mated del ejemplo
 
 **Tabla 9 – Acoples mated**
 
-| ID   | From (C, pin) | To (C, pin) | Net  | Status    | Descripción |
-|------|---------------|-------------|------|-----------|-------------|
-| M001 | C001, 1       | C002, 1     | N001 | connected | J1‑J2 |
-| M002 | C004, 1       | C003, 1     | N001 | connected | J4‑J3 |
-| M003 | C005, 1       | C006, 1     | N001 | connected | J5‑J6 |
-| M004 | C007, 2       | C008, 2     | N001 | connected | J7‑J8 |
+| ID   | From (C, pin) | To (C, pin) | Net  | Status    | pinMapping | Descripción |
+|------|---------------|-------------|------|-----------|------------|-------------|
+| M001 | C001, 1       | C002, 1     | N001 | connected | direct     | J1‑J2 (2 pines, 1 a 1) |
+| M002 | C004, 1       | C003, 1     | N001 | connected | direct     | J4‑J3 (2 pines, 1 a 1) |
+| M003 | C005, 1       | C006, 1     | N001 | connected | direct     | J5‑J6 (4 pines, por ahora solo se usa pin 1) |
+| M004 | C007, 2       | C008, 2     | N001 | connected | null       | J7‑J8 (conexión explícita pin 2‑2, no sigue mapeo automático) |
 
 #### 6.5 Visualización
 
@@ -371,7 +376,7 @@ Un net es una señal eléctrica declarada una vez. Wires y mateds lo referencian
 #### 8.3 Construcción automática del grafo
 
 8.3.1. El sistema examina wires y mateds con el mismo net y construye un grafo de nodos (conector, pin).  
-8.3.2. La ruta del ejemplo: C001.pin1‑C002.pin1‑C003.pin1‑C004.pin1‑C005.pin1‑C006.pin1‑C007.pin2‑C008.pin2.
+8.3.2. La ruta del ejemplo: C001.pin1 – C002.pin1 – C003.pin1 – C004.pin1 – C005.pin1 – C006.pin1 – C007.pin2 – C008.pin2.
 
 #### 8.4 Uso de nets
 
@@ -390,8 +395,8 @@ Un net es una señal eléctrica declarada una vez. Wires y mateds lo referencian
 T100 (Moto)
 ├── T200 (Caja 1)
 │   ├── T300 (PCB 1)
-│   │   ├── C001 (J1, male, anclado right)
-│   │   └── C002 (J2, female, libre)
+│   │   └── C001 (J1, male, anclado right)
+│   ├── C002 (J2, female, libre)
 │   └── C003 (J3, female, anclado right)
 ├── T201 (Caja 2)
 │   ├── T301 (PCB 2)
@@ -402,6 +407,8 @@ T100 (Moto)
 ├── C004 (J4, male, libre)
 └── C005 (J5, male, libre)
 ```
+
+**Corrección aplicada:** C002 se ha movido para que cuelgue directamente de T200, en coherencia con su `parent_id` en la Tabla 5. En versiones anteriores aparecía erróneamente dentro de T300.
 
 #### 9.2 Ubicación efectiva de los wires
 
@@ -418,7 +425,8 @@ T100 (Moto)
 10.3. **Pines válidos:** los pines referenciados deben existir en los conectores.  
 10.4. **Longitud de wire:** `length` es informativo, sin restricción.  
 10.5. **Compatibilidad jerárquica:** dos conectores pueden conectarse si comparten un ancestro contenedor común.  
-10.6. **Continuidad de nets:** el grafo del net debe ser conexo; se detectan conflictos de señales.
+10.6. **Continuidad de nets:** el grafo del net debe ser conexo; se detectan conflictos de señales.  
+10.7. **Mapeo de pines (opcional):** si `pinMapping` es `"direct"` o `"reversed"`, los pines `from` y `to` deben cumplir el orden declarado.
 
 **Memoria de diseño – 10.2**  
 La validación de `matedId` reemplaza la antigua validación de `expectedPair`. Ahora no hay doble fuente de verdad: el M es la única definición de la pareja.
@@ -436,7 +444,7 @@ La validación de `matedId` reemplaza la antigua validación de `expectedPair`. 
  11.4.3. El modo edición se activa/desactiva con un interruptor en ese panel, o mediante el atajo **Ctrl+Shift+E**.  
  11.4.4. Por defecto, el sistema arranca en modo solo lectura.  
  11.4.5. En modo edición se habilitan las interacciones de arrastre y redimensionamiento.  
-11.5. **Redimensionamiento:** handles en bordes y esquinas; conectores anclados mantienen distancia a esquina fija.  
+11.5. **Redimensionamiento:** handles en bordes y esquinas; los conectores anclados permanecen fijos respecto a la esquina de referencia (ver 3.3.2.3).  
 11.6. **Resaltado de nets:** al seleccionar un net, sus wires cambian de color.
 
 ---
@@ -464,3 +472,10 @@ La validación de `matedId` reemplaza la antigua validación de `expectedPair`. 
 **Versión 1.3** – Refactorización mayor: sustitución de `expectedPair` por `matedId`, estructura histórica de notas, panel de configuración, corrección de numeración duplicada.
 
 **Versión 1.4** – Adición de subsección 1.3 "Filosofía de Uso y Alcance" para clarificar que la herramienta es una plataforma de documentación visual interactiva, con capacidades de creación y edición completas y sincronización bidireccional entre vista gráfica y datos.
+
+**Versión 1.5** – Corrección de errores de coherencia y adición de funcionalidad:  
+- Corregida la regla de redimensionamiento de conectores anclados (3.3.2.3): ahora especifica correctamente que el conector no se desplaza si la esquina de referencia está fija.  
+- Ajustadas las coordenadas de C001 y C003 para que queden dentro de sus contenedores.  
+- Corregido el árbol jerárquico (9.1): C02 ahora cuelga de T200.  
+- Añadido el campo opcional `pinMapping` en los acoples M (direct/reversed/null) para validar el orden de pines.  
+- Actualizadas las tablas 5, 7, 8 y 9 para reflejar las correcciones y la nueva columna.
