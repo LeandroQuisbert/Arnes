@@ -1,4 +1,4 @@
-## VERSIÓN 1.3 – DOCUMENTACIÓN DE ARQUITECTURA DEL VISUALIZADOR DE ARNÉS
+## VERSIÓN 1.4 – DOCUMENTACIÓN DE ARQUITECTURA DEL VISUALIZADOR DE ARNÉS
 
 ---
 
@@ -8,8 +8,27 @@
 
 1.2. Permite visualizar los elementos, moverlos en modo edición respetando la jerarquía de contención, observar cables flexibles y validar automáticamente la coherencia de géneros, pines y señales.
 
+#### 1.3. Filosofía de Uso y Alcance
+
+1.3.1. Esta aplicación no es un simulador eléctrico ni una herramienta de diseño de circuitos. Es una **plataforma de documentación visual interactiva** para técnicos y mecánicos, pensada para representar el cableado "como si estuviera extendido en el piso del taller".
+
+1.3.2. La herramienta permite tanto **consultar** un arnés existente como **construir y modificar** su representación desde cero. Todas las entidades (contenedores, conectores, cables, acoples y nets) pueden crearse, editarse y eliminarse directamente desde la interfaz gráfica o mediante la carga de archivos de datos.
+
+1.3.3. La relación entre la vista gráfica y los datos subyacentes es **bidireccional**:
+- Cualquier cambio realizado en el dibujo (arrastre, redimensionamiento, creación de conexiones) se refleja automáticamente en las tablas de datos.
+- Cualquier modificación en los datos (cambio de propiedades, adición de notas, ajuste de pines) actualiza inmediatamente la representación visual.
+
+1.3.4. Los usos principales son:
+- **Trazar rutas**: seguir visualmente el camino de una señal desde un pin de origen hasta su destino, incluso si atraviesa varios conectores y cables.
+- **Identificar propiedades**: conocer de un vistazo el color, calibre, longitud y tipo de cada cable, así como los pines involucrados en cada conexión.
+- **Filtrar y aislar**: ocultar subsistemas completos para centrarse en un circuito específico (por ejemplo, ver solo la ECU y la botonera).
+- **Documentar y anotar**: añadir notas con historial a cualquier elemento, dejando registro de modificaciones, observaciones de mantenimiento o decisiones de diseño.
+- **Gestionar el arnés completo**: crear, modificar y eliminar componentes, cables y conexiones, manteniendo siempre la coherencia entre la vista visual y la base de datos del proyecto.
+
+1.3.5. En esencia, es un **plano dinámico e interactivo** que funciona como una capa intermedia entre el esquema técnico y la base de datos del arnés, permitiendo que el trabajo de documentación y consulta se realice de forma orgánica y visual.
+
 **Memoria de diseño – Sección 1**  
-Se mantiene el propósito original del MVP: ofrecer una vista interactiva del arnés con restricciones físicas realistas. La separación entre componentes, relaciones y señales sigue el patrón modelo-vista, donde los componentes tienen presencia gráfica, las relaciones definen vínculos y los nets permiten validación eléctrica. La decisión de mantener estos tres pilares se tomó para no mezclar responsabilidades y facilitar futuras ampliaciones como simulación de continuidad.
+Se mantiene el propósito original del MVP: ofrecer una vista interactiva del arnés con restricciones físicas realistas. La separación entre componentes, relaciones y señales sigue el patrón modelo-vista, donde los componentes tienen presencia gráfica, las relaciones definen vínculos y los nets permiten validación eléctrica. La decisión de mantener estos tres pilares se tomó para no mezclar responsabilidades y facilitar futuras ampliaciones como simulación de continuidad. La nueva subsección 1.3 clarifica el alcance de la herramienta como documentación visual activa, no como simulador, y explicita la naturaleza bidireccional de la interfaz.
 
 ---
 
@@ -429,7 +448,8 @@ La validación de `matedId` reemplaza la antigua validación de `expectedPair`. 
 12.3. Tamaño visual de conectores adaptable a pines o designator.  
 12.4. Panel de validación global.  
 12.5. Soportar pares trenzados (campo `pair` en nets).  
-12.6. Puntos de chasis como nodos de tierra implícitos.
+12.6. Puntos de chasis como nodos de tierra implícitos.  
+12.7. Integración con sistemas Kanban para seguimiento de tareas basadas en notas.
 
 ---
 
@@ -441,10 +461,6 @@ La validación de `matedId` reemplaza la antigua validación de `expectedPair`. 
 
 **Versión 1.2** – Modo edición con toggle (Ctrl+Shift+E), eliminación de estados explícitos en conectores, adición de campos `notes` y `hidden`.
 
-**Versión 1.3** – Refactorización mayor:  
-- Sustitución de `expectedPair` por `matedId` en conectores, vinculando directamente al M.  
-- El campo `notes` adopta estructura histórica (fecha, usuario, texto) y se extiende a todas las entidades.  
-- El control de modo edición se integra en un panel de configuración general.  
-- Corrección de numeración duplicada en la sección de redimensionamiento (3.3.2).  
-- Eliminadas las ambigüedades derivadas de la doble fuente de verdad entre expectedPair y M.  
-- Actualización completa de tablas y memorias de diseño.
+**Versión 1.3** – Refactorización mayor: sustitución de `expectedPair` por `matedId`, estructura histórica de notas, panel de configuración, corrección de numeración duplicada.
+
+**Versión 1.4** – Adición de subsección 1.3 "Filosofía de Uso y Alcance" para clarificar que la herramienta es una plataforma de documentación visual interactiva, con capacidades de creación y edición completas y sincronización bidireccional entre vista gráfica y datos.
