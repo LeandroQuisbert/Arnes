@@ -1,4 +1,4 @@
-## VERSIÓN 1.5 – DOCUMENTACIÓN DE ARQUITECTURA DEL VISUALIZADOR DE ARNÉS
+## VERSIÓN 1.6 – DOCUMENTACIÓN DE ARQUITECTURA DEL VISUALIZADOR DE ARNÉS
 
 ---
 
@@ -28,7 +28,7 @@
 1.3.5. En esencia, es un **plano dinámico e interactivo** que funciona como una capa intermedia entre el esquema técnico y la base de datos del arnés, permitiendo que el trabajo de documentación y consulta se realice de forma orgánica y visual.
 
 **Memoria de diseño – Sección 1**  
-Se mantiene el propósito original del MVP: ofrecer una vista interactiva del arnés con restricciones físicas realistas. La separación entre componentes, relaciones y señales sigue el patrón modelo-vista, donde los componentes tienen presencia gráfica, las relaciones definen vínculos y los nets permiten validación eléctrica. La decisión de mantener estos tres pilares se tomó para no mezclar responsabilidades y facilitar futuras ampliaciones como simulación de continuidad. La nueva subsección 1.3 clarifica el alcance de la herramienta como documentación visual activa, no como simulador, y explicita la naturaleza bidireccional de la interfaz.
+Se mantiene el propósito original del MVP: ofrecer una vista interactiva del arnés con restricciones físicas realistas. La separación entre componentes, relaciones y señales sigue el patrón modelo-vista, donde los componentes tienen presencia gráfica, las relaciones definen vínculos y los nets permiten validación eléctrica. La decisión de mantener estos tres pilares se tomó para no mezclar responsabilidades y facilitar futuras ampliaciones como simulación de continuidad. La subsección 1.3 clarifica el alcance de la herramienta como documentación visual activa, no como simulador, y explicita la naturaleza bidireccional de la interfaz.
 
 ---
 
@@ -135,7 +135,7 @@ El movimiento solidario en tiempo real evita parpadeos. No se modifica el tamañ
 3.3.2.3.4. En resumen, los conectores anclados permanecen fijos en su lugar durante el redimensionamiento, manteniendo su relación con la esquina fija más cercana. Esto evita desplazamientos inesperados y simplifica la edición, ya que solo cambia la longitud del contenedor sin alterar la posición de los elementos montados en sus bordes.
 
 **Memoria de diseño – 3.3.2**  
-La regla actual corrige la redacción confusa de la versión 1.4, donde se afirmaba erróneamente que el conector se desplazaba. En realidad, al estar anclado a un borde y referenciado a una esquina que no se mueve, permanece inmóvil. Esto modela fielmente el comportamiento de un conector atornillado a un panel: si el panel se estira hacia abajo, el conector no cambia de sitio. La versión anterior generaba una paradoja geométrica que quedaba resuelta con esta aclaración.
+La regla actual modela fielmente el comportamiento de un conector atornillado a un panel: si el panel se estira hacia abajo, el conector no cambia de sitio. La versión anterior generaba una paradoja geométrica que quedaba resuelta con esta aclaración.
 
 ---
 
@@ -160,7 +160,6 @@ Los conectores son los puntos de conexión eléctrica. Cada uno tiene un género
 | position   | object        | `{ x, y, width, height }` en píxeles |
 | matedId    | string / null | ID del acople M al que pertenece, o `null` si está libre |
 | notes      | array         | Histórico de notas (ver 3.1.1) |
-| hidden     | boolean       | Si `true`, no se muestra (defecto: `false`) |
 
 4.1.1. `edgeSide` define el tipo de fijación:  
  a. **Anclado (anchored)**: `"left"`, `"right"`, `"top"`, `"bottom"`. Solo puede deslizarse a lo largo del borde o cambiarse a otro borde.  
@@ -173,7 +172,9 @@ Los conectores son los puntos de conexión eléctrica. Cada uno tiene un género
 En versiones anteriores se usaba `expectedPair` (ID del conector esperado). A partir de la versión 1.3 se adopta `matedId` (ID del M). La migración consiste en buscar el M que conecta ambos conectores y asignar ese ID. Si no hay M, se deja `null`.
 
 **Memoria de diseño – 4.1**  
-El cambio a `matedId` unifica la fuente de verdad: el M es quien define la relación, y el conector simplemente referencia a ese M. Esto elimina las ambigüedades que surgían al tener dos campos separados (`expectedPair` y la existencia del M) que podían discrepar. Ahora, si un conector tiene `matedId`, está acoplado; si no, está libre. El sistema solo necesita validar que el M referenciado exista y contenga al conector. La exclusividad es inherente porque un conector solo puede apuntar a un M.
+El cambio a `matedId` unifica la fuente de verdad: el M es quien define la relación, y el conector simplemente referencia a ese M. Esto elimina las ambigüedades que surgían al tener dos campos separados (`expectedPair` y la existencia del M) que podían discrepar. Ahora, si un conector tiene `matedId`, está acoplado; si no, está libre. El sistema solo necesita validar que el M referenciado exista y contenga al conector. La exclusividad es inherente porque un conector solo puede apuntar a un M.  
+
+El campo `hidden` fue eliminado en esta versión. La ocultación de conectores se gestiona exclusivamente como un filtro de la vista, sin persistirse en el modelo de datos.
 
 #### 4.2 Género y validación
 
@@ -188,20 +189,20 @@ Se eliminó la restricción direccional de género; solo importa que sean comple
 
 **Tabla 5 – Conectores del ejemplo**
 
-| ID   | Nombre       | Padre | Designator | Pines | Género | EdgeSide | Posición (x, y, w, h) | matedId | Notes | Hidden |
-|------|--------------|-------|------------|-------|--------|----------|------------------------|---------|-------|--------|
-| C001 | Molex 2P     | T300  | J1         | 2     | male   | right    | 408, 360, 180, 115    | M001    | –     | false  |
-| C002 | Molex 2P     | T200  | J2         | 2     | female | null     | 588, 360, 180, 115    | M001    | –     | false  |
-| C003 | GX12         | T200  | J3         | 2     | female | right    | 910, 900, 180, 115    | M002    | –     | false  |
-| C004 | GX12         | T100  | J4         | 2     | male   | null     | 1240, 900, 180, 115   | M002    | –     | false  |
-| C005 | GX12 4P      | T100  | J5         | 4     | male   | null     | 1463, 900, 180, 115   | M003    | –     | false  |
-| C006 | GX12 4P      | T201  | J6         | 4     | female | left     | 1643, 900, 180, 115   | M003    | –     | false  |
-| C007 | Molex 5P     | T201  | J7         | 5     | male   | null     | 1890, 360, 180, 115   | M004    | –     | false  |
-| C008 | Molex 5P     | T301  | J8         | 5     | female | left     | 1890, 360, 180, 115   | M004    | –     | false  |
-| C009 | Molex 2P     | T301  | J9         | 2     | female | left     | 1890, 540, 180, 115   | null    | [{"date":"2026-07-12","user":"Leo","text":"Reserva para faro auxiliar"}] | false  |
+| ID   | Nombre       | Padre | Designator | Pines | Género | EdgeSide | Posición (x, y, w, h) | matedId | Notes |
+|------|--------------|-------|------------|-------|--------|----------|------------------------|---------|-------|
+| C001 | Molex 2P     | T300  | J1         | 2     | male   | right    | 408, 360, 180, 115    | M001    | –     |
+| C002 | Molex 2P     | T200  | J2         | 2     | female | null     | 588, 360, 180, 115    | M001    | –     |
+| C003 | GX12         | T200  | J3         | 2     | female | right    | 910, 900, 180, 115    | M002    | –     |
+| C004 | GX12         | T100  | J4         | 2     | male   | null     | 1240, 900, 180, 115   | M002    | –     |
+| C005 | GX12 4P      | T100  | J5         | 4     | male   | null     | 1463, 900, 180, 115   | M003    | –     |
+| C006 | GX12 4P      | T201  | J6         | 4     | female | left     | 1643, 900, 180, 115   | M003    | –     |
+| C007 | Molex 5P     | T201  | J7         | 5     | male   | null     | 1890, 360, 180, 115   | M004    | –     |
+| C008 | Molex 5P     | T301  | J8         | 5     | female | left     | 1890, 360, 180, 115   | M004    | –     |
+| C009 | Molex 2P     | T301  | J9         | 2     | female | left     | 1890, 540, 180, 115   | null    | [{"date":"2026-07-12","user":"Leo","text":"Reserva para faro auxiliar"}] |
 
 **Memoria de diseño – 4.3**  
-Las coordenadas de los conectores anclados han sido ajustadas para cumplir la regla 4.4.1 (conector completamente dentro del contenedor, cara de pines en el borde). En versiones anteriores C001 y C003 sobresalían de sus contenedores; ahora sus posiciones corrigen ese error. C001 se ubica en x=408 para que su lado derecho coincida con el borde derecho de T300 (588). C003 se sitúa en x=910 para que su lado derecho coincida con el borde derecho de T200 (1090). El resto de conectores anclados ya cumplían la restricción.
+Las coordenadas de los conectores anclados cumplen la regla 4.4.1 (conector completamente dentro del contenedor, cara de pines en el borde). C001 se ubica en x=408 para que su lado derecho coincida con el borde derecho de T300 (588). C003 se sitúa en x=910 para que su lado derecho coincida con el borde derecho de T200 (1090). El resto de conectores anclados ya cumplían la restricción. Se ha eliminado la columna `hidden` de la tabla, en coherencia con la eliminación de dicho campo.
 
 #### 4.4 Posicionamiento de conectores anclados
 
@@ -222,8 +223,8 @@ Las coordenadas de los conectores anclados han sido ajustadas para cumplir la re
 
 ##### 4.5.3 Propagación rígida del movimiento
 
-4.5.3.1. Solo los conectores unidos mediante un **M activo** (`status: "connected"`) se mueven solidariamente.  
-4.5.3.2. Al arrastrar un conector, se mueve también el otro extremo si comparten el mismo M activo.  
+4.5.3.1. Solo los conectores unidos mediante un **M activo** se mueven solidariamente.  
+4.5.3.2. Al arrastrar un conector, se mueve también el otro extremo si comparten el mismo M.  
 4.5.3.3. Los conectores unidos solo por wires no se arrastran entre sí; el cable se redibuja.
 
 ---
@@ -288,44 +289,39 @@ Define una unión macho‑hembra entre dos conectores. Unión rígida: los conec
 | from       | object | `{ connector: "C001", pin: 1 }` |
 | to         | object | `{ connector: "C002", pin: 1 }` |
 | net        | string | ID del net que transporta |
-| status     | string | `"connected"`, `"planned"`, `"disconnected"`, `"obsolete"` |
 | pinMapping | string / null | `"direct"` (pin a pin igual), `"reversed"` (invertido), o `null` si no se especifica (opcional) |
 | notes      | array  | Histórico de notas |
 
-#### 6.2 Significado de `status`
+**Importante:** A partir de la versión 1.6, un M listado en el array de conexiones **siempre representa un acople conectado**. Se eliminan los estados `planned`, `disconnected` y `obsolete`. La presencia del M es condición necesaria y suficiente para considerar la unión activa.
 
-6.2.1. `"connected"` – acople físicamente realizado.  
-6.2.2. `"planned"` – previsto pero no instalado.  
-6.2.3. `"disconnected"` – retirado temporalmente.  
-6.2.4. `"obsolete"` – histórico, sin efecto.
+#### 6.2 Validaciones
 
-6.2.5. En el MVP actual, todos los M son `"connected"`.
-
-#### 6.3 Validaciones
-
-6.3.1. Los dos conectores deben tener géneros opuestos.  
-6.3.2. Si un conector tiene `matedId`, ese ID debe coincidir con el M que lo incluye.  
-6.3.3. El sistema verificará la coherencia al cargar: cada M debe ser referenciado por sus dos conectores.  
-6.3.4. **Mapeo de pines (nuevo en v1.5):**  
- a. Si `pinMapping` es `"direct"`, el acople respeta el orden natural: el pin 1 de un conector se conecta con el pin 1 del otro, el 2 con el 2, y así sucesivamente. El sistema validará que los pines declarados en `from` y `to` cumplan esta correspondencia.  
+6.2.1. Los dos conectores deben tener géneros opuestos.  
+6.2.2. Si un conector tiene `matedId`, ese ID debe coincidir con el M que lo incluye.  
+6.2.3. El sistema verificará la coherencia al cargar: cada M debe ser referenciado por sus dos conectores.  
+6.2.4. **Mapeo de pines:**  
+ a. Si `pinMapping` es `"direct"`, el acople respeta el orden natural: pin 1 con pin 1, pin 2 con pin 2, etc. El sistema validará que los pines declarados en `from` y `to` cumplan esta correspondencia.  
  b. Si `pinMapping` es `"reversed"`, el orden se invierte: pin 1 con pin N, pin 2 con N‑1, etc., siendo N el número de pines del conector más pequeño.  
- c. Si `pinMapping` es `null` o no se define, no se aplica esta validación automática y se aceptan los pines explícitos tal cual se declaren.
+ c. Si `pinMapping` es `null` o no se define, no se aplica esta validación automática.
 
-#### 6.4 Tabla de mated del ejemplo
+#### 6.3 Tabla de mated del ejemplo
 
 **Tabla 9 – Acoples mated**
 
-| ID   | From (C, pin) | To (C, pin) | Net  | Status    | pinMapping | Descripción |
-|------|---------------|-------------|------|-----------|------------|-------------|
-| M001 | C001, 1       | C002, 1     | N001 | connected | direct     | J1‑J2 (2 pines, 1 a 1) |
-| M002 | C004, 1       | C003, 1     | N001 | connected | direct     | J4‑J3 (2 pines, 1 a 1) |
-| M003 | C005, 1       | C006, 1     | N001 | connected | direct     | J5‑J6 (4 pines, por ahora solo se usa pin 1) |
-| M004 | C007, 2       | C008, 2     | N001 | connected | null       | J7‑J8 (conexión explícita pin 2‑2, no sigue mapeo automático) |
+| ID   | From (C, pin) | To (C, pin) | Net  | pinMapping | Descripción |
+|------|---------------|-------------|------|------------|-------------|
+| M001 | C001, 1       | C002, 1     | N001 | direct     | J1‑J2 (2 pines, 1 a 1) |
+| M002 | C004, 1       | C003, 1     | N001 | direct     | J4‑J3 (2 pines, 1 a 1) |
+| M003 | C005, 1       | C006, 1     | N001 | direct     | J5‑J6 (4 pines, por ahora solo se usa pin 1) |
+| M004 | C007, 2       | C008, 2     | N001 | null       | J7‑J8 (conexión explícita pin 2‑2) |
 
-#### 6.5 Visualización
+**Memoria de diseño – Sección 6**  
+La simplificación de los estados de M responde a la realidad del MVP: no se ha implementado ninguna funcionalidad que requiera distinguir entre acoples planeados, desconectados u obsoletos. Mantener esos estados generaba complejidad innecesaria y posibles incoherencias con `matedId`. Si en el futuro se necesita modelar otros estados, se reintroducirán con un enfoque más robusto.
 
-6.5.1. Sin línea; conectores enfrentados borde con borde.  
-6.5.2. La unión rígida se manifiesta en el movimiento solidario.
+#### 6.4 Visualización
+
+6.4.1. Sin línea; conectores enfrentados borde con borde.  
+6.4.2. La unión rígida se manifiesta en el movimiento solidario.
 
 ---
 
@@ -333,8 +329,8 @@ Define una unión macho‑hembra entre dos conectores. Unión rígida: los conec
 
 #### 7.1 Generación en runtime
 
-7.1.1. `lockedWith` no se almacena; se calcula a partir de los M con `status: "connected"`.  
-7.1.2. Cada M activo hace que ambos conectores se incluyan mutuamente en `lockedWith`.  
+7.1.1. `lockedWith` no se almacena; se calcula a partir de todos los M existentes (todos ellos activos por definición).  
+7.1.2. Cada M hace que ambos conectores se incluyan mutuamente en `lockedWith`.  
 7.1.3. Los wires no contribuyen.
 
 #### 7.2 Cadenas rígidas
@@ -408,8 +404,6 @@ T100 (Moto)
 └── C005 (J5, male, libre)
 ```
 
-**Corrección aplicada:** C002 se ha movido para que cuelgue directamente de T200, en coherencia con su `parent_id` en la Tabla 5. En versiones anteriores aparecía erróneamente dentro de T300.
-
 #### 9.2 Ubicación efectiva de los wires
 
 9.2.1. W001: dentro de T200.  
@@ -429,7 +423,7 @@ T100 (Moto)
 10.7. **Mapeo de pines (opcional):** si `pinMapping` es `"direct"` o `"reversed"`, los pines `from` y `to` deben cumplir el orden declarado.
 
 **Memoria de diseño – 10.2**  
-La validación de `matedId` reemplaza la antigua validación de `expectedPair`. Ahora no hay doble fuente de verdad: el M es la única definición de la pareja.
+La validación de `matedId` mantiene la coherencia del modelo. Con la eliminación del campo `status`, todos los M son activos, lo que simplifica la verificación: basta con que el M exista y sea referenciado.
 
 ---
 
@@ -445,7 +439,8 @@ La validación de `matedId` reemplaza la antigua validación de `expectedPair`. 
  11.4.4. Por defecto, el sistema arranca en modo solo lectura.  
  11.4.5. En modo edición se habilitan las interacciones de arrastre y redimensionamiento.  
 11.5. **Redimensionamiento:** handles en bordes y esquinas; los conectores anclados permanecen fijos respecto a la esquina de referencia (ver 3.3.2.3).  
-11.6. **Resaltado de nets:** al seleccionar un net, sus wires cambian de color.
+11.6. **Resaltado de nets:** al seleccionar un net, sus wires cambian de color.  
+11.7. **Filtros de vista:** la ocultación de conectores o subsistemas se realiza mediante filtros dinámicos en la interfaz, sin alterar los datos del proyecto.
 
 ---
 
@@ -457,7 +452,8 @@ La validación de `matedId` reemplaza la antigua validación de `expectedPair`. 
 12.4. Panel de validación global.  
 12.5. Soportar pares trenzados (campo `pair` en nets).  
 12.6. Puntos de chasis como nodos de tierra implícitos.  
-12.7. Integración con sistemas Kanban para seguimiento de tareas basadas en notas.
+12.7. Integración con sistemas Kanban para seguimiento de tareas basadas en notas.  
+12.8. En caso de requerirse, reintroducción de estados en M (planificado, desconectado, obsoleto) con un modelo más robusto de gestión de ciclo de vida de conexiones.
 
 ---
 
@@ -473,9 +469,6 @@ La validación de `matedId` reemplaza la antigua validación de `expectedPair`. 
 
 **Versión 1.4** – Adición de subsección 1.3 "Filosofía de Uso y Alcance" para clarificar que la herramienta es una plataforma de documentación visual interactiva, con capacidades de creación y edición completas y sincronización bidireccional entre vista gráfica y datos.
 
-**Versión 1.5** – Corrección de errores de coherencia y adición de funcionalidad:  
-- Corregida la regla de redimensionamiento de conectores anclados (3.3.2.3): ahora especifica correctamente que el conector no se desplaza si la esquina de referencia está fija.  
-- Ajustadas las coordenadas de C001 y C003 para que queden dentro de sus contenedores.  
-- Corregido el árbol jerárquico (9.1): C02 ahora cuelga de T200.  
-- Añadido el campo opcional `pinMapping` en los acoples M (direct/reversed/null) para validar el orden de pines.  
-- Actualizadas las tablas 5, 7, 8 y 9 para reflejar las correcciones y la nueva columna.
+**Versión 1.5** – Corrección de errores de coherencia y adición de funcionalidad: regla de redimensionamiento corregida, coordenadas de conectores ajustadas, árbol jerárquico actualizado, campo opcional `pinMapping` en M.
+
+**Versión 1.6** – Simplificación del modelo: eliminación del campo `hidden` en conectores (la ocultación se gestiona como filtro de vista) y eliminación de los estados `planned`, `disconnected` y `obsolete` en M (un M listado siempre equivale a un acople conectado). Actualización de tablas, validaciones y memorias de diseño.
