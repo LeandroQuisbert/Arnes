@@ -1,8 +1,8 @@
-## VERSIÓN 1.6 – DOCUMENTACIÓN DE ARQUITECTURA DEL VISUALIZADOR DE ARNÉS
+## VERSIÓN 1.7 – DOCUMENTACIÓN DE ARQUITECTURA DEL VISUALIZADOR DE ARNÉS
 
 ---
 
-### 1. RESUMEN Y PROPÓSITO DEL SISTEMA 
+### 1. RESUMEN Y PROPÓSITO DEL SISTEMA
 
 1.1. Este visualizador modela el arnés de una moto eléctrica como un grafo de **componentes físicos** (contenedores, conectores) unidos por **relaciones** (cables fijos, acoples enchufables) y organizados mediante **señales lógicas** (nets).  
 
@@ -55,8 +55,18 @@ Se mantiene el propósito original del MVP: ofrecer una vista interactiva del ar
 
 2.4. El campo `type` (p. ej. `"system"`, `"enclosure"`, `"pcb"`) sigue presente en los datos para definir explícitamente el subtipo; el ID solo actúa como identificador único.
 
+#### 2.5. Principio de posicionamiento
+
+2.5.1. **Regla general**:  
+- Todo componente con `parent_id: null` tiene posición absoluta respecto al lienzo (atributos `x`, `y`).  
+- Todo componente con `parent_id` no nulo tiene posición relativa a su padre (atributos `offsetX`, `offsetY` para contenedores; `offset` para conectores).  
+
+2.5.2. En la práctica actual, solo `T100` (system raíz) cumple `parent_id: null`. La regla está enunciada de forma genérica para admitir futuros componentes raíz sin modificar la lógica de posicionamiento.
+
 **Memoria de diseño – Sección 2**  
-La tabla única de entidades facilita la consulta rápida y evita la redundancia. La subdivisión de `T` se explica a continuación, manteniendo la tabla limpia. Se conserva el campo `type` porque la letra `T` por sí sola no distingue entre sistema, caja o placa; el rango numérico da una pista, pero el tipo explícito es necesario para el procesamiento. La decisión de usar centenas como niveles jerárquicos se tomó para permitir un crecimiento muy holgado (en la práctica rara vez se superan 10 elementos por tipo). Conectores, cables, acoples y nets tienen cada uno su propio prefijo porque representan conceptos fundamentalmente diferentes.
+La tabla única de entidades facilita la consulta rápida. La subdivisión de `T` se explica a continuación, manteniendo la tabla limpia. Se conserva el campo `type` porque la letra `T` por sí sola no distingue entre sistema, caja o placa; el rango numérico da una pista, pero el tipo explícito es necesario para el procesamiento. La decisión de usar centenas como niveles jerárquicos permite un crecimiento holgado (en la práctica rara vez se superan 10 elementos por tipo). Conectores, cables, acoples y nets tienen cada uno su propio prefijo porque representan conceptos fundamentalmente diferentes.  
+
+La nueva subsección 2.5 formaliza el principio de posicionamiento relativo que se aplica en toda la arquitectura: solo la raíz del mundo tiene coordenadas absolutas. Esto evita ambigüedades y centraliza la responsabilidad del cálculo de posiciones en el motor de renderizado.
 
 ---
 
@@ -75,7 +85,7 @@ Son los **contenedores** que definen la estructura física del arnés. No tienen
 | name        | string       | Nombre descriptivo (ej. "Caja 1") |
 | parent_id   | string / null| ID del contenedor padre (`null` solo para el sistema raíz) |
 | designator  | string       | Etiqueta técnica (ej. "BOX1", "PCB1") |
-| position    | object       | `{ x, y, width, height }` en píxeles |
+| position    | object       | **Si `parent_id` es `null`**: `{ x, y, width, height }` en píxeles absolutos.<br>**Si `parent_id` no es `null`**: `{ offsetX, offsetY, width, height }` en píxeles relativos al padre. |
 | notes       | array        | Histórico de notas (ver 3.1.1) |
 
 ##### 3.1.1 Estructura de notas
@@ -91,51 +101,50 @@ El campo `notes` está disponible en **todas** las entidades (contenedores, cone
 
 **Tabla 3 – Lista de contenedores del ejemplo**
 
-| ID   | Type       | Nombre         | Padre | Designator | Posición (x, y, width, height) | Notes |
-|------|------------|----------------|-------|------------|--------------------------------|-------|
-| T100 | system     | Moto Eléctrica | null  | –          | 50, 50, 2600, 1200 | – |
-| T200 | enclosure  | Caja 1         | T100  | BOX1       | 140, 160, 950, 1000 | – |
-| T201 | enclosure  | Caja 2         | T100  | BOX2       | 1643, 172, 950, 1000 | – |
-| T300 | pcb        | PCB 1          | T200  | PCB1       | 220, 260, 368, 837 | – |
-| T301 | pcb        | PCB 2          | T201  | PCB2       | 2070, 289, 472, 817 | – |
+| ID   | Type       | Nombre         | Padre | Designator | Posición (offsetX, offsetY, width, height) | Notas |
+|------|------------|----------------|-------|------------|-------------------------------------------|-------|
+| T100 | system     | Moto Eléctrica | null  | –          | 50, 50, 2600, 1200 *(absoluto)* | – |
+| T200 | enclosure  | Caja 1         | T100  | BOX1       | 90, 110, 950, 1000 | – |
+| T201 | enclosure  | Caja 2         | T100  | BOX2       | 1593, 122, 950, 1000 | – |
+| T300 | pcb        | PCB 1          | T200  | PCB1       | 80, 100, 368, 837 | – |
+| T301 | pcb        | PCB 2          | T201  | PCB2       | 427, 117, 472, 817 | – |
 
 **Memoria de diseño – Sección 3**  
-El término "contenedores" agrupa system, enclosure y pcb bajo un mismo concepto. La jerarquía de `parent_id` nulo solo en el sistema raíz evita componentes huérfanos. Las posiciones son absolutas respecto al lienzo. El campo `notes` sigue la misma estructura que en el resto de entidades para mantener homogeneidad.
+El término "contenedores" agrupa system, enclosure y pcb bajo un mismo concepto. La jerarquía de `parent_id` nulo solo en el sistema raíz evita componentes huérfanos. Los valores de posición han sido convertidos a relativos (offsetX/offsetY) excepto para T100, que mantiene coordenadas absolutas por ser la raíz. Las fórmulas de conversión desde la versión anterior son: `offsetX = x - x_padre`, `offsetY = y - y_padre`. El campo `notes` sigue la misma estructura que en el resto de entidades para mantener homogeneidad.
 
 #### 3.3 Movimiento y redimensionamiento
 
 ##### 3.3.1 Movimiento de contenedores
 
 3.3.1.1. Al arrastrar un contenedor, todos sus descendientes se desplazan el mismo vector **(dx, dy) en tiempo real**, sin retardo.  
-3.3.1.2. El contenedor arrastrado **no modifica su tamaño** ni ninguna otra propiedad; solo cambian sus coordenadas **X** e **Y**.  
+3.3.1.2. El contenedor arrastrado **no modifica su tamaño** ni ninguna otra propiedad; solo cambian sus valores de posición (`offsetX`/`offsetY`, o `x`/`y` si es T100).  
 3.3.1.3. Los conectores anclados (`edgeSide`) se reposicionan automáticamente sobre el borde del padre en el mismo fotograma.
 
 **Memoria de diseño – 3.3.1**  
-El movimiento solidario en tiempo real evita parpadeos. No se modifica el tamaño durante el arrastre porque esa operación tiene su propio modo (redimensionamiento con handles).
+El movimiento solidario en tiempo real evita parpadeos. Al ser todas las posiciones relativas, mover un contenedor no requiere actualizar las coordenadas de sus descendientes; el renderizado recalcula las posiciones absolutas a partir de los offsets en cada frame. No se modifica el tamaño durante el arrastre porque esa operación tiene su propio modo (redimensionamiento con handles).
 
 ##### 3.3.2 Redimensionamiento
 
 3.3.2.1. Los contenedores pueden redimensionarse arrastrando cualquier esquina o borde (handles en todo el perímetro).  
 3.3.2.2. Durante el redimensionamiento:  
  a. Los conectores anclados ajustan su posición según la regla definida en **3.3.2.3**.  
- b. Los componentes internos no anclados (con `edgeSide: null`) conservan su distancia relativa al centro geométrico del contenedor.
-
-##### 3.3.2.3 Comportamiento de conectores anclados durante el redimensionamiento
-
-3.3.2.3.1. Un conector anclado **conserva su distancia respecto a la esquina del borde que permanece fija durante el estiramiento**. La esquina fija es aquella que no es arrastrada por el tirador de redimensión.  
-3.3.2.3.2. **Ejemplo concreto** (borde derecho, estiramiento vertical hacia abajo):  
- a. Conector en el borde derecho (`edgeSide: "right"`) de un contenedor.  
- b. Si el contenedor se estira **solo hacia abajo** (aumenta su altura, manteniendo fija la esquina superior izquierda), el borde derecho se alarga.  
- c. La esquina superior derecha **no se mueve**.  
- d. La distancia desde el centro del conector hasta esa esquina superior derecha **permanece constante**.  
- e. **Por tanto, el conector no se desplaza.** El borde se estira por debajo de él, pero su posición absoluta no cambia.  
-3.3.2.3.3. Regla general para cualquier borde:  
- a. Si se estira un eje **paralelo** al borde donde está anclado el conector, se toma como referencia la esquina más cercana que **no** está siendo desplazada por el estiramiento. La distancia a esa esquina se mantiene, por lo que el conector **no se mueve** en la dirección del estiramiento.  
- b. Si el estiramiento es **perpendicular** al borde, el borde mismo no se desplaza lateralmente, así que el conector **no cambia de posición**.  
-3.3.2.3.4. En resumen, los conectores anclados permanecen fijos en su lugar durante el redimensionamiento, manteniendo su relación con la esquina fija más cercana. Esto evita desplazamientos inesperados y simplifica la edición, ya que solo cambia la longitud del contenedor sin alterar la posición de los elementos montados en sus bordes.
+ b. Los componentes internos no anclados conservan su distancia relativa al centro geométrico del contenedor.  
+3.3.2.3. **Comportamiento de conectores anclados durante el redimensionamiento:**  
+ 3.3.2.3.1. Un conector anclado **conserva su distancia respecto a la esquina del borde que permanece fija durante el estiramiento**. La esquina fija es aquella que no es arrastrada por el tirador de redimensión.  
+ 3.3.2.3.2. **Ejemplo concreto** (borde derecho, estiramiento vertical hacia abajo):  
+  a. Conector en el borde derecho (`edgeSide: "right"`) de un contenedor.  
+  b. Si el contenedor se estira **solo hacia abajo** (aumenta su altura, manteniendo fija la esquina superior izquierda), el borde derecho se alarga.  
+  c. La esquina superior derecha **no se mueve**.  
+  d. La distancia desde el centro del conector hasta esa esquina superior derecha **permanece constante**.  
+  e. **Por tanto, el conector no se desplaza.** El borde se estira por debajo de él, pero su posición absoluta no cambia.  
+ 3.3.2.3.3. Regla general para cualquier borde:  
+  a. Si se estira un eje **paralelo** al borde donde está anclado el conector, se toma como referencia la esquina más cercana que **no** está siendo desplazada por el estiramiento. La distancia a esa esquina se mantiene, por lo que el conector **no se mueve** en la dirección del estiramiento.  
+  b. Si el estiramiento es **perpendicular** al borde, el borde mismo no se desplaza lateralmente, así que el conector **no cambia de posición**.  
+3.3.2.4. **Posicionamiento de handles en bordes con conectores:**  
+ Para evitar interferencias visuales, los handles de redimensionamiento ubicados en un borde que contiene conectores anclados se sitúan automáticamente en el extremo opuesto del borde, dejando libre la zona donde se encuentra el conector. Por ejemplo, si un conector está anclado cerca de la parte superior de un borde derecho, el handle de ese borde aparecerá en la parte inferior.
 
 **Memoria de diseño – 3.3.2**  
-La regla actual modela fielmente el comportamiento de un conector atornillado a un panel: si el panel se estira hacia abajo, el conector no cambia de sitio. La versión anterior generaba una paradoja geométrica que quedaba resuelta con esta aclaración.
+Redimensionamiento desde cualquier borde para máxima flexibilidad. La regla de distancia a esquina fija evita comportamientos contraintuitivos que tenía el método porcentual. El nuevo punto 3.3.2.4 resuelve un problema práctico de usabilidad: cuando un conector está cerca del handle, el usuario podía redimensionar sin querer al intentar mover el conector. Al desplazar el handle al extremo opuesto, se elimina esa interferencia.
 
 ---
 
@@ -156,25 +165,33 @@ Los conectores son los puntos de conexión eléctrica. Cada uno tiene un género
 | designator | string        | Etiqueta técnica (ej. "J1") |
 | pins       | number        | Cantidad de pines |
 | gender     | string        | `"male"` o `"female"` (obligatorio) |
-| edgeSide   | string / null | `"left"`, `"right"`, `"top"`, `"bottom"` o `null` |
-| position   | object        | `{ x, y, width, height }` en píxeles |
+| edgeSide   | string        | **Obligatorio.** `"left"`, `"right"`, `"top"`, `"bottom"` |
+| offset     | number        | Distancia desde el extremo de referencia del borde (ver 4.1.1) |
+| position   | object        | `{ width, height }` en píxeles (tamaño del conector, sin coordenadas x,y) |
 | matedId    | string / null | ID del acople M al que pertenece, o `null` si está libre |
 | notes      | array         | Histórico de notas (ver 3.1.1) |
 
-4.1.1. `edgeSide` define el tipo de fijación:  
- a. **Anclado (anchored)**: `"left"`, `"right"`, `"top"`, `"bottom"`. Solo puede deslizarse a lo largo del borde o cambiarse a otro borde.  
- b. **Libre (free)**: `null`. Se mueve dentro de los límites del contenedor.
+4.1.1. Definición de `offset` según `edgeSide`:  
+ a. Para `"left"` o `"right"`: `offset` es la distancia desde el borde superior del contenedor padre hasta el borde superior del conector.  
+ b. Para `"top"` o `"bottom"`: `offset` es la distancia desde el borde izquierdo del contenedor padre hasta el borde izquierdo del conector.
 
-4.1.2. `matedId` vincula el conector con el acople M que lo une a su pareja. Si el conector participa en un M, aquí se almacena el ID de dicho M. Este enfoque sustituye al antiguo `expectedPair` (ver 4.1.2.1).
+4.1.2. Cálculo de la posición absoluta en runtime:
 
-###### 4.1.2.1 Migración desde expectedPair
+| `edgeSide` | `x_global` | `y_global` |
+|------------|------------|------------|
+| `"left"`   | `padre.x` | `padre.y + offset` |
+| `"right"`  | `padre.x + padre.width - conector.width` | `padre.y + offset` |
+| `"top"`    | `padre.x + offset` | `padre.y` |
+| `"bottom"` | `padre.x + offset` | `padre.y + padre.height - conector.height` |
+
+4.1.3. `matedId` vincula el conector con el acople M que lo une a su pareja. Si el conector participa en un M, aquí se almacena el ID de dicho M. Este enfoque sustituye al antiguo `expectedPair`.
+
+###### 4.1.3.1 Migración desde expectedPair
 
 En versiones anteriores se usaba `expectedPair` (ID del conector esperado). A partir de la versión 1.3 se adopta `matedId` (ID del M). La migración consiste en buscar el M que conecta ambos conectores y asignar ese ID. Si no hay M, se deja `null`.
 
 **Memoria de diseño – 4.1**  
-El cambio a `matedId` unifica la fuente de verdad: el M es quien define la relación, y el conector simplemente referencia a ese M. Esto elimina las ambigüedades que surgían al tener dos campos separados (`expectedPair` y la existencia del M) que podían discrepar. Ahora, si un conector tiene `matedId`, está acoplado; si no, está libre. El sistema solo necesita validar que el M referenciado exista y contenga al conector. La exclusividad es inherente porque un conector solo puede apuntar a un M.  
-
-El campo `hidden` fue eliminado en esta versión. La ocultación de conectores se gestiona exclusivamente como un filtro de la vista, sin persistirse en el modelo de datos.
+El cambio a `matedId` unifica la fuente de verdad: el M es quien define la relación, y el conector simplemente referencia a ese M. Se eliminan los campos `position.x` e `position.y`, reemplazados por un único valor `offset` que, combinado con `edgeSide`, permite calcular la posición global. `edgeSide` pasa a ser obligatorio, eliminando el concepto de conector libre. Todos los conectores están anclados a un borde de su contenedor, reflejando la realidad física de los arneses. La posición de un conector nunca depende de su pareja en un M; cada conector se posiciona exclusivamente por su relación geométrica con su contenedor padre. Esto garantiza que al mover una caja, todos sus conectores se desplacen correctamente con ella.
 
 #### 4.2 Género y validación
 
@@ -189,43 +206,33 @@ Se eliminó la restricción direccional de género; solo importa que sean comple
 
 **Tabla 5 – Conectores del ejemplo**
 
-| ID   | Nombre       | Padre | Designator | Pines | Género | EdgeSide | Posición (x, y, w, h) | matedId | Notes |
-|------|--------------|-------|------------|-------|--------|----------|------------------------|---------|-------|
-| C001 | Molex 2P     | T300  | J1         | 2     | male   | right    | 408, 360, 180, 115    | M001    | –     |
-| C002 | Molex 2P     | T200  | J2         | 2     | female | null     | 588, 360, 180, 115    | M001    | –     |
-| C003 | GX12         | T200  | J3         | 2     | female | right    | 910, 900, 180, 115    | M002    | –     |
-| C004 | GX12         | T100  | J4         | 2     | male   | null     | 1240, 900, 180, 115   | M002    | –     |
-| C005 | GX12 4P      | T100  | J5         | 4     | male   | null     | 1463, 900, 180, 115   | M003    | –     |
-| C006 | GX12 4P      | T201  | J6         | 4     | female | left     | 1643, 900, 180, 115   | M003    | –     |
-| C007 | Molex 5P     | T201  | J7         | 5     | male   | null     | 1890, 360, 180, 115   | M004    | –     |
-| C008 | Molex 5P     | T301  | J8         | 5     | female | left     | 1890, 360, 180, 115   | M004    | –     |
-| C009 | Molex 2P     | T301  | J9         | 2     | female | left     | 1890, 540, 180, 115   | null    | [{"date":"2026-07-12","user":"Leo","text":"Reserva para faro auxiliar"}] |
+| ID   | Nombre       | Padre | Designator | Pines | Género | EdgeSide | Offset | Tamaño (w, h) | matedId | Notes |
+|------|--------------|-------|------------|-------|--------|----------|--------|----------------|---------|-------|
+| C001 | Molex 2P     | T300  | J1         | 2     | male   | right    | 100    | 180, 115       | M001    | –     |
+| C002 | Molex 2P     | T200  | J2         | 2     | female | right    | 200    | 180, 115       | M001    | –     |
+| C003 | GX12         | T200  | J3         | 2     | female | right    | 740    | 180, 115       | M002    | –     |
+| C004 | GX12         | T100  | J4         | 2     | male   | left     | 850    | 180, 115       | M002    | –     |
+| C005 | GX12 4P      | T100  | J5         | 4     | male   | right    | 850    | 180, 115       | M003    | –     |
+| C006 | GX12 4P      | T201  | J6         | 4     | female | left     | 728    | 180, 115       | M003    | –     |
+| C007 | Molex 5P     | T201  | J7         | 5     | male   | left     | 188    | 180, 115       | M004    | –     |
+| C008 | Molex 5P     | T301  | J8         | 5     | female | left     | 71     | 180, 115       | M004    | –     |
+| C009 | Molex 2P     | T301  | J9         | 2     | female | left     | 251    | 180, 115       | null    | [{"date":"2026-07-12","user":"Leo","text":"Reserva para faro auxiliar"}] |
 
 **Memoria de diseño – 4.3**  
-Las coordenadas de los conectores anclados cumplen la regla 4.4.1 (conector completamente dentro del contenedor, cara de pines en el borde). C001 se ubica en x=408 para que su lado derecho coincida con el borde derecho de T300 (588). C003 se sitúa en x=910 para que su lado derecho coincida con el borde derecho de T200 (1090). El resto de conectores anclados ya cumplían la restricción. Se ha eliminado la columna `hidden` de la tabla, en coherencia con la eliminación de dicho campo.
+Los conectores `C002`, `C004`, `C005` y `C007`, que antes eran libres (`edgeSide: null`), han sido migrados a `edgeSide` según su posición relativa a la caja o al sistema. Por ejemplo, `C004` y `C005` están en `T100` y se ubican en bordes opuestos (`left` y `right`) para representar el latiguillo externo. `C002` se mantiene en el borde derecho de la Caja 1, cerca de `C003`. Los offsets se han calculado con las fórmulas de migración: para bordes verticales, `offset = y - y_padre`; para horizontales, `offset = x - x_padre`. El campo `hidden` ha sido eliminado; la visibilidad se controla con filtros de vista.
 
-#### 4.4 Posicionamiento de conectores anclados
+#### 4.4 Posicionamiento de conectores
 
 4.4.1. Conector anclado: completamente dentro del contenedor, con la cara de pines exactamente sobre el borde indicado por `edgeSide`.  
 4.4.2. Ejemplo: `edgeSide: "right"` → borde derecho del conector toca el borde derecho del contenedor.
 
 #### 4.5 Movimiento de conectores
 
-##### 4.5.1 Conectores anclados
-
-4.5.1.1. Pueden deslizarse a lo largo del borde.  
-4.5.1.2. Pueden cambiarse a otro borde si el cursor supera 30 px de distancia perpendicular.
-
-##### 4.5.2 Conectores libres
-
-4.5.2.1. Se mueven dentro de los límites del contenedor.  
-4.5.2.2. En el sistema raíz (T100) pueden moverse por todo el lienzo.
-
-##### 4.5.3 Propagación rígida del movimiento
-
-4.5.3.1. Solo los conectores unidos mediante un **M activo** se mueven solidariamente.  
-4.5.3.2. Al arrastrar un conector, se mueve también el otro extremo si comparten el mismo M.  
-4.5.3.3. Los conectores unidos solo por wires no se arrastran entre sí; el cable se redibuja.
+4.5.1. Todos los conectores están anclados a un borde. Pueden **deslizarse a lo largo del borde** (cambiando su `offset`) o **cambiarse a otro borde** del mismo contenedor si el cursor supera 30 px de distancia perpendicular al borde actual.  
+4.5.2. **Propagación rígida del movimiento:**  
+ 4.5.2.1. Solo los conectores unidos mediante un **M** se mueven solidariamente (todos los M existentes se consideran acoples activos).  
+ 4.5.2.2. Al arrastrar un conector, se mueve también el otro extremo si comparten el mismo M.  
+ 4.5.2.3. Los conectores unidos solo por wires no se arrastran entre sí; el cable se redibuja.
 
 ---
 
@@ -302,7 +309,8 @@ Define una unión macho‑hembra entre dos conectores. Unión rígida: los conec
 6.2.4. **Mapeo de pines:**  
  a. Si `pinMapping` es `"direct"`, el acople respeta el orden natural: pin 1 con pin 1, pin 2 con pin 2, etc. El sistema validará que los pines declarados en `from` y `to` cumplan esta correspondencia.  
  b. Si `pinMapping` es `"reversed"`, el orden se invierte: pin 1 con pin N, pin 2 con N‑1, etc., siendo N el número de pines del conector más pequeño.  
- c. Si `pinMapping` es `null` o no se define, no se aplica esta validación automática.
+ c. Si `pinMapping` es `null` o no se define, no se aplica esta validación automática.  
+ d. Si los conectores tienen distinto número de pines y `pinMapping` es `"direct"` o `"reversed"`, el sistema emitirá una advertencia informativa indicando cuántos pines del conector más grande quedan sin asignar en este acople.
 
 #### 6.3 Tabla de mated del ejemplo
 
@@ -329,7 +337,7 @@ La simplificación de los estados de M responde a la realidad del MVP: no se ha 
 
 #### 7.1 Generación en runtime
 
-7.1.1. `lockedWith` no se almacena; se calcula a partir de todos los M existentes (todos ellos activos por definición).  
+7.1.1. `lockedWith` no se almacena; se calcula a partir de todos los M existentes (todos son activos por definición).  
 7.1.2. Cada M hace que ambos conectores se incluyan mutuamente en `lockedWith`.  
 7.1.3. Los wires no contribuyen.
 
@@ -392,16 +400,16 @@ T100 (Moto)
 ├── T200 (Caja 1)
 │   ├── T300 (PCB 1)
 │   │   └── C001 (J1, male, anclado right)
-│   ├── C002 (J2, female, libre)
+│   ├── C002 (J2, female, anclado right)
 │   └── C003 (J3, female, anclado right)
 ├── T201 (Caja 2)
 │   ├── T301 (PCB 2)
 │   │   ├── C008 (J8, female, anclado left)
 │   │   └── C009 (J9, female, anclado left)
 │   ├── C006 (J6, female, anclado left)
-│   └── C007 (J7, male, libre)
-├── C004 (J4, male, libre)
-└── C005 (J5, male, libre)
+│   └── C007 (J7, male, anclado left)
+├── C004 (J4, male, anclado left)
+└── C005 (J5, male, anclado right)
 ```
 
 #### 9.2 Ubicación efectiva de los wires
@@ -415,15 +423,16 @@ T100 (Moto)
 ### 10. REGLAS DE CONSISTENCIA Y VALIDACIONES
 
 10.1. **Género en M:** géneros opuestos obligatorios.  
-10.2. **Integridad de matedId:** si un conector tiene `matedId`, ese M debe existir y contener al conector.  
-10.3. **Pines válidos:** los pines referenciados deben existir en los conectores.  
-10.4. **Longitud de wire:** `length` es informativo, sin restricción.  
-10.5. **Compatibilidad jerárquica:** dos conectores pueden conectarse si comparten un ancestro contenedor común.  
-10.6. **Continuidad de nets:** el grafo del net debe ser conexo; se detectan conflictos de señales.  
-10.7. **Mapeo de pines (opcional):** si `pinMapping` es `"direct"` o `"reversed"`, los pines `from` y `to` deben cumplir el orden declarado.
+10.2. **Integridad de matedId:** si un conector tiene `matedId`, ese M debe existir, contener al conector, y ambos conectores del M deben tener el mismo `matedId`.  
+10.3. **Obligatoriedad de edgeSide:** todo conector debe tener `edgeSide` definido (`"left"`, `"right"`, `"top"`, `"bottom"`). No se admite valor `null`.  
+10.4. **Pines válidos:** los pines referenciados deben existir en los conectores.  
+10.5. **Longitud de wire:** `length` es informativo, sin restricción.  
+10.6. **Compatibilidad jerárquica:** dos conectores pueden conectarse si comparten un ancestro contenedor común.  
+10.7. **Continuidad de nets:** el grafo del net debe ser conexo; se detectan conflictos de señales.  
+10.8. **Mapeo de pines (opcional):** si `pinMapping` es `"direct"` o `"reversed"`, los pines `from` y `to` deben cumplir el orden declarado. Si los conectores tienen distinto número de pines, se emitirá una advertencia informativa sobre los pines no asignados.
 
 **Memoria de diseño – 10.2**  
-La validación de `matedId` mantiene la coherencia del modelo. Con la eliminación del campo `status`, todos los M son activos, lo que simplifica la verificación: basta con que el M exista y sea referenciado.
+La validación de `matedId` mantiene la coherencia del modelo. Con la eliminación del campo `status`, todos los M son activos, lo que simplifica la verificación: basta con que el M exista y sea referenciado. La nueva regla 10.3 formaliza la obligatoriedad de `edgeSide`, cerrando la posibilidad de conectores sin ubicación definida.
 
 ---
 
@@ -434,13 +443,13 @@ La validación de `matedId` mantiene la coherencia del modelo. Con la eliminaci�
 11.3. **Conectores anclados:** dentro del contenedor, pines sobre el borde.  
 11.4. **Panel de configuración y modo edición:**  
  11.4.1. Existe un botón de configuración (ícono de engranaje) en la barra superior.  
- 11.4.2. Al pulsarlo se despliega un panel que contiene, entre otras opciones futuras, el control de **modo edición**.  
+ 11.4.2. Al pulsarlo se despliega un panel que contiene, entre otras opciones, el control de **modo edición** y la **opción de rendimiento** para el recálculo de posiciones (continuo o al finalizar el movimiento).  
  11.4.3. El modo edición se activa/desactiva con un interruptor en ese panel, o mediante el atajo **Ctrl+Shift+E**.  
  11.4.4. Por defecto, el sistema arranca en modo solo lectura.  
  11.4.5. En modo edición se habilitan las interacciones de arrastre y redimensionamiento.  
-11.5. **Redimensionamiento:** handles en bordes y esquinas; los conectores anclados permanecen fijos respecto a la esquina de referencia (ver 3.3.2.3).  
+11.5. **Redimensionamiento:** handles en bordes y esquinas; los conectores anclados permanecen fijos respecto a la esquina de referencia (ver 3.3.2.3). Los handles en bordes con conectores se sitúan en el extremo opuesto para evitar interferencias (ver 3.3.2.4).  
 11.6. **Resaltado de nets:** al seleccionar un net, sus wires cambian de color.  
-11.7. **Filtros de vista:** la ocultación de conectores o subsistemas se realiza mediante filtros dinámicos en la interfaz, sin alterar los datos del proyecto.
+11.7. **Filtros de vista:** la ocultación de conectores o subsistemas se realiza mediante filtros dinámicos en la interfaz. El estado de los filtros se guarda automáticamente en `localStorage` del navegador vinculado al identificador del proyecto, restaurándose al recargar la página. Existe un control para restablecer todos los filtros.
 
 ---
 
@@ -453,7 +462,8 @@ La validación de `matedId` mantiene la coherencia del modelo. Con la eliminaci�
 12.5. Soportar pares trenzados (campo `pair` en nets).  
 12.6. Puntos de chasis como nodos de tierra implícitos.  
 12.7. Integración con sistemas Kanban para seguimiento de tareas basadas en notas.  
-12.8. En caso de requerirse, reintroducción de estados en M (planificado, desconectado, obsoleto) con un modelo más robusto de gestión de ciclo de vida de conexiones.
+12.8. En caso de requerirse, reintroducción de estados en M (planificado, desconectado, obsoleto) con un modelo más robusto de gestión de ciclo de vida de conexiones.  
+12.9. **Sistema de registro de eventos (logs):** para visualizar incidencias como conectores no enfrentados en un M, advertencias de validación y acciones del usuario, facilitando el diagnóstico y la auditoría.
 
 ---
 
@@ -471,4 +481,18 @@ La validación de `matedId` mantiene la coherencia del modelo. Con la eliminaci�
 
 **Versión 1.5** – Corrección de errores de coherencia y adición de funcionalidad: regla de redimensionamiento corregida, coordenadas de conectores ajustadas, árbol jerárquico actualizado, campo opcional `pinMapping` en M.
 
-**Versión 1.6** – Simplificación del modelo: eliminación del campo `hidden` en conectores (la ocultación se gestiona como filtro de vista) y eliminación de los estados `planned`, `disconnected` y `obsolete` en M (un M listado siempre equivale a un acople conectado). Actualización de tablas, validaciones y memorias de diseño.
+**Versión 1.6** – Simplificación del modelo: eliminación del campo `hidden` en conectores y de los estados en M.
+
+**Versión 1.7** – Refactorización del sistema de posicionamiento:  
+- Coordenadas relativas para todos los componentes excepto aquellos con `parent_id: null` (solo T100 en la práctica actual).  
+- Eliminación del concepto de conector libre: `edgeSide` pasa a ser obligatorio para todos los conectores.  
+- Eliminación de los campos `position.x`/`position.y` en conectores, reemplazados por `offset`.  
+- Contenedores no raíz almacenan `offsetX`/`offsetY` en lugar de `x`/`y` absolutos.  
+- Migración automática desde archivos V1.6.  
+- Nuevas validaciones: `edgeSide` obligatorio, consistencia estricta de `matedId`.  
+- Advertencia de `pinMapping` asimétrico.  
+- Eliminación de la terminología "M activo".  
+- Persistencia de filtros de vista en `localStorage`.  
+- Opción de rendimiento en panel de configuración.  
+- Handles de redimensionamiento adaptativos en bordes con conectores.  
+- Nota futura sobre sistema de logs.
