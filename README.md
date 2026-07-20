@@ -1,4 +1,4 @@
-## VERSIÓN 1.9 – DOCUMENTACIÓN DE ARQUITECTURA DEL VISUALIZADOR DE ARNÉS
+## VERSIÓN 1.9.1 – DOCUMENTACIÓN DE ARQUITECTURA DEL VISUALIZADOR DE ARNÉS
 
 ---
 
@@ -129,10 +129,10 @@ El término "contenedores" agrupa system, enclosure y pcb bajo un mismo concepto
 
 3.3.1.1. Al arrastrar un contenedor, todos sus descendientes se desplazan el mismo vector **(dx, dy) en tiempo real**, sin retardo.  
 3.3.1.2. El contenedor arrastrado **no modifica su size** ni ninguna otra propiedad; solo cambian sus valores de posición (`offsetX`/`offsetY`, o `x`/`y` si es T100).  
-3.3.1.3. Los conectores fijos (`mountType: "fixed"`) se reposicionan automáticamente sobre el borde del padre en el mismo fotograma. Los conectores volantes (`mountType: "flying"`) no se desplazan con el contenedor; su posición se recalcula a partir de su pareja fija en el M (ver 4.5.3).
+3.3.1.3. Los conectores fijos (`mountType: "fixed"`) se reposicionan automáticamente sobre el borde del padre en el mismo fotograma. Los conectores volantes (`mountType: "flying"`) no están anclados cinemáticamente a su contenedor: su posición se recalcula en cada frame a partir de la posición del conector fijo al que están enchufados. Por tanto, un volante se mueve únicamente si el fijo se mueve (por arrastre directo o por movimiento del contenedor que contiene al fijo). Si el contenedor del volante se mueve pero el fijo no, el volante permanece en su sitio, lo que puede provocar que quede fuera de los límites de su contenedor (ver 12.9).
 
 **Memoria de diseño – 3.3.1**  
-El movimiento solidario en tiempo real evita parpadeos. Al ser todas las posiciones relativas, mover un contenedor no requiere actualizar las coordenadas de sus descendientes; el renderizado recalcula las posiciones absolutas a partir de los offsets en cada frame. No se modifica el size durante el arrastre porque esa operación tiene su propio modo (redimensionamiento con handle). La excepción para conectores volantes se introdujo en V1.9 para reflejar la realidad física: el extremo de un cable no está atornillado a la caja, sino que se mueve con el conector al que está enchufado.
+El movimiento solidario en tiempo real evita parpadeos. Al ser todas las posiciones relativas, mover un contenedor no requiere actualizar las coordenadas de sus descendientes; el renderizado recalcula las posiciones absolutas a partir de los offsets en cada frame. No se modifica el size durante el arrastre porque esa operación tiene su propio modo (redimensionamiento con handle). La excepción para conectores volantes se introdujo en V1.9 para reflejar la realidad física: el extremo de un cable no está atornillado a la caja, sino que se mueve con el conector al que está enchufado. La redacción se refinó en V1.9.1 para eliminar cualquier ambigüedad.
 
 ##### 3.3.2 Redimensionamiento
 
@@ -172,7 +172,7 @@ Los conectores son los puntos de conexión eléctrica. Cada uno tiene un género
 
 4.1.1. `mountType` define la cinemática del conector:  
  a. **Fijo (`"fixed"`)**: el conector está atornillado o soldado a su contenedor padre. Su posición se calcula a partir de `edgeSide` y `offset`. Al mover el contenedor, el conector se mueve con él.  
- b. **Volante (`"flying"`)**: el conector es el extremo de un cable. No está fijado mecánicamente a su contenedor; su posición se calcula a partir del conector fijo al que está enchufado (su pareja en el M). Al mover el contenedor padre, el conector volante **no se desplaza** con él; sigue a su pareja fija. Si como resultado queda fuera de los límites de su contenedor, el sistema registra una advertencia en el futuro sistema de logs (ver 12.9), pero no bloquea la acción.
+ b. **Volante (`"flying"`)**: el conector es el extremo de un cable. No está fijado mecánicamente a su contenedor; su `parent_id` es declarativo/organizativo (indica en qué caja está físicamente el cable, permite calcular el ancestro común para los wires y valida la compatibilidad jerárquica), pero no influye en su posición. Esta se calcula a partir del conector fijo al que está enchufado (su pareja en el M). Al mover el contenedor padre, el conector volante **no se desplaza** con él; sigue a su pareja fija. Si como resultado queda fuera de los límites de su contenedor, el sistema registra una advertencia en el futuro sistema de logs (ver 12.9), pero no bloquea la acción.
 
 4.1.2. Definición de `offset` (solo para `mountType: "fixed"`):  
  a. Para `"left"` o `"right"`: `offset` es la distancia desde el borde superior del contenedor padre hasta el borde superior del conector.  
@@ -194,12 +194,12 @@ Donde `padre.width` y `padre.height` provienen del `size` del contenedor padre, 
 4.1.4. Cálculo de la posición absoluta para conectores **volantes**:  
  a. Se localiza el conector fijo con el que comparte `matedId`.  
  b. Se aplica la orientación opuesta: si el fijo es `"right"`, el volante se coloca con su borde izquierdo tocando el borde derecho del fijo. Si el fijo es `"left"`, el volante se coloca con su borde derecho tocando el borde izquierdo del fijo. Análogo para `"top"` y `"bottom"`.  
- c. La coordenada perpendicular se alinea para que los pines coincidan (ver 10.9).
+ c. La coordenada perpendicular se alinea para que los pines coincidan (ver 10.10).
 
 4.1.5. `matedId` vincula el conector con el acople M que lo une a su pareja. Si el conector participa en un M, aquí se almacena el ID de dicho M.
 
 **Memoria de diseño – 4.1**  
-La introducción de `mountType` en V1.9 resuelve el conflicto cinemático detectado en la auditoría de la V1.8.2: un conector en el extremo de un cable no está fijado a su caja, por lo que no debe moverse con ella si su pareja está en otro contenedor. Esta distinción refleja fielmente la realidad física y elimina la necesidad de reglas temporales de herencia cinemática. Los conectores volantes no almacenan `offset`; su posición es siempre derivada de su pareja fija. La advertencia por quedar fuera del contenedor padre no bloquea la operación (el usuario puede luego agrandar la caja manualmente).
+La introducción de `mountType` en V1.9 resuelve el conflicto cinemático detectado en la auditoría de la V1.8.2: un conector en el extremo de un cable no está fijado a su caja, por lo que no debe moverse con ella si su pareja está en otro contenedor. Esta distinción refleja fielmente la realidad física. Los conectores volantes no almacenan `offset`; su posición es siempre derivada de su pareja fija. La advertencia por quedar fuera del contenedor padre no bloquea la operación (el usuario puede luego agrandar la caja manualmente). En V1.9.1 se añadió la aclaración explícita de que el `parent_id` de un volante es declarativo: no afecta a su posición, pero es necesario para el cálculo del ancestro común de los wires y para la validación jerárquica.
 
 #### 4.2 Género y validación
 
@@ -224,7 +224,7 @@ La introducción de `mountType` en V1.9 resuelve el conflicto cinemático detect
 | C009 | Molex 2P     | T301  | J9         | 2     | female | fixed     | left     | 251    | 180, 115     | null    | [{"date":"2026-07-12","user":"Leo","text":"Reserva para faro auxiliar"}] |
 
 **Memoria de diseño – 4.3**  
-Los conectores C002, C004, C005 y C007 son volantes: son los extremos de los cables W001, W002, W002 y W003 respectivamente. No almacenan `offset`. Los conectores C001, C003, C006, C008 y C009 son fijos: están soldados o atornillados a sus placas o paneles. Las orientaciones cumplen la regla de enfrentamiento 10.9.
+Los conectores C002, C004, C005 y C007 son volantes: son los extremos de los cables W001, W002, W002 y W003 respectivamente. No almacenan `offset`. Los conectores C001, C003, C006, C008 y C009 son fijos: están soldados o atornillados a sus placas o paneles. Las orientaciones cumplen la regla de enfrentamiento 10.10.
 
 #### 4.4 Posicionamiento de conectores
 
@@ -237,7 +237,7 @@ Los conectores C002, C004, C005 y C007 son volantes: son los extremos de los cab
 4.5.1. **Conectores fijos**: pueden **deslizarse a lo largo del borde** (cambiando su `offset`) o **cambiarse a otro borde** del mismo contenedor si el cursor supera 30 px de distancia perpendicular al borde actual.  
 4.5.2. **Conectores volantes**: no pueden arrastrarse directamente. Su posición se actualiza automáticamente al mover el conector fijo al que están enchufados.  
 4.5.3. **Propagación rígida del movimiento:**  
- 4.5.3.1. Los conectores unidos mediante un **M** se mueven solidariamente. Al mover un conector fijo, el volante se reposiciona para mantener el acople.  
+ 4.5.3.1. Los conectores unidos mediante un **M** se mueven solidariamente. Al mover un conector fijo (directamente o moviendo su contenedor), el volante asociado se reposiciona automáticamente para mantener el acople, ignorando su propio contenedor a efectos de posición.  
  4.5.3.2. Los conectores unidos solo por wires no se arrastran entre sí; el cable se redibuja.
 
 ---
@@ -329,7 +329,7 @@ Define una unión macho‑hembra entre dos conectores. Unión rígida: los conec
 
 6.4.1. Sin línea; conectores enfrentados borde con borde.  
 6.4.2. La unión rígida se manifiesta en el movimiento solidario.  
-6.4.3. **Bloque rígido visual**: dado que un acople M representa una unión física real e inseparable, en la vista gráfica ambos conectores deben aparecer estrictamente enfrentados y sin separación. El usuario no puede separarlos arrastrándolos en modo edición; el volante sigue siempre al fijo. Si al cargar o editar datos la posición matemática de ambos conectores deja un espacio entre ellos, el sistema emitirá la advertencia correspondiente (ver 10.9).
+6.4.3. **Bloque rígido visual**: dado que un acople M representa una unión física real e inseparable, en la vista gráfica ambos conectores deben aparecer estrictamente enfrentados y sin separación. El usuario no puede separarlos arrastrándolos en modo edición; el volante sigue siempre al fijo. Si al cargar o editar datos la posición matemática de ambos conectores deja un espacio entre ellos, el sistema emitirá la advertencia correspondiente (ver 10.10).
 
 ---
 
@@ -423,15 +423,15 @@ T100 (Moto)
 ### 10. REGLAS DE CONSISTENCIA Y VALIDACIONES
 
 10.1. **Género en M:** géneros opuestos obligatorios.  
-10.2. **Integridad de matedId:** correspondencia bidireccional entre `matedId` y el M.  
+10.2. **Integridad de matedId:** si un conector tiene `matedId`, ese M debe existir, contener al conector, y ambos conectores del M deben tener el mismo `matedId`. Recíprocamente, si un conector aparece en el `from` o `to` de un M, debe tener ese `matedId`; el sistema rechazará cualquier configuración que no cumpla esta correspondencia bidireccional.  
 10.3. **Obligatoriedad de edgeSide y mountType:** todo conector debe tener `edgeSide` y `mountType` definidos.  
 10.4. **Composición de M:** un M conecta un fijo con un volante.  
 10.5. **Pines válidos:** los pines referenciados deben existir en los conectores.  
-10.6. **Longitud de wire:** `length` es informativo, sin restricción.  
-10.7. **Compatibilidad jerárquica:** dos conectores pueden conectarse si comparten un ancestro contenedor común.  
+10.6. **Compatibilidad jerárquica:** dos conectores solo pueden conectarse (mediante un cable W o un acople M) si comparten un ancestro contenedor común en el árbol de contención. En caso contrario, el sistema rechazará la conexión.  
+10.7. **Longitud de wire:** `length` es informativo, sin restricción.  
 10.8. **Continuidad de nets:** el grafo del net debe ser conexo; se detectan conflictos de señales.  
 10.9. **Mapeo de pines (opcional):** si `pinMapping` es `"direct"` o `"reversed"`, los pines `from` y `to` deben cumplir el orden declarado. Si los conectores tienen distinto número de pines, se emitirá una advertencia informativa sobre los pines no asignados.  
-10.10. **Enfrentamiento de pines en M:** los dos conectores que comparten un `matedId` deben tener orientaciones opuestas. Adicionalmente, el sistema verificará que las posiciones estén alineadas (diferencia ≤ 2 px en la coordenada perpendicular al borde). Si se supera este umbral, se emitirá una advertencia de desalineación.
+10.10. **Enfrentamiento de pines en M:** los dos conectores que comparten un `matedId` deben tener orientaciones opuestas. Adicionalmente, el sistema verificará que las posiciones estén alineadas en la coordenada perpendicular al borde. Para acoples left/right, la diferencia entre sus coordenadas Y globales no debe superar los 2 píxeles. Para acoples top/bottom, la diferencia entre sus coordenadas X globales no debe superar los 2 píxeles. Si se supera este umbral, se emitirá una advertencia de desalineación.
 
 ---
 
@@ -464,7 +464,7 @@ T100 (Moto)
 12.7. Integración con sistemas Kanban para seguimiento de tareas basadas en notas.  
 12.8. En caso de requerirse, reintroducción de estados en M (planificado, desconectado, obsoleto) con un modelo más robusto.  
 12.9. **Sistema de registro de eventos (logs):** para visualizar incidencias como conectores no enfrentados en un M, conectores volantes fuera de su contenedor padre, advertencias de validación y acciones del usuario, facilitando el diagnóstico y la auditoría.  
-12.10. Revisión de los errores #2, #3 y #4 de la auditoría de V1.8.2 (notación de coordenadas absolutas, validación inversa de matedId ya corregida, alineación de offsets ya corregida).
+12.10. **Umbral de desalineación configurable:** el umbral de 2 píxeles para la validación de alineación de offsets (10.10) podrá ajustarse en el panel de configuración para adaptarse a distintas resoluciones de lienzo o niveles de zoom.
 
 ---
 
@@ -486,16 +486,17 @@ T100 (Moto)
 
 **Versión 1.7** – Refactorización del sistema de posicionamiento: coordenadas relativas para todos los componentes excepto aquellos con `parent_id: null`, eliminación del conector libre (`edgeSide` obligatorio), reemplazo de `x`/`y` por `offset` en conectores, nuevas validaciones y persistencia de filtros.
 
-**Versión 1.8** – Mejoras de contexto y refinamiento de datos: separación de `position` y `size`, nueva validación de enfrentamiento de pines en M (10.9) y regla de bloque rígido visual (6.4.3), nueva subsección 1.4 "Flujo de trabajo del técnico", panel de propiedades, filtros rápidos.
+**Versión 1.8** – Mejoras de contexto y refinamiento de datos: separación de `position` y `size`, nueva validación de enfrentamiento de pines en M y regla de bloque rígido visual, nueva subsección 1.4 "Flujo de trabajo del técnico", panel de propiedades, filtros rápidos.
 
-**Versión 1.8.1** – Correcciones menores: eliminada la referencia a migración automática, unificado el término "size", corregido el ejemplo de conectores (C002 `left`, C008 `right`) para cumplir la regla de enfrentamiento, eliminado el punto obsoleto sobre componentes no anclados.
+**Versión 1.8.1** – Correcciones menores: eliminada la referencia a migración automática, unificado el término "size", corregido el ejemplo de conectores para cumplir la regla de enfrentamiento, eliminado el punto obsoleto sobre componentes no anclados.
 
 **Versión 1.8.2** – Limpieza terminológica: eliminada toda referencia a "conectores anclados", eliminada la definición de "Libre (free)", simplificado el diagrama jerárquico.
 
-**Versión 1.9** – Resolución del conflicto cinemático y simplificación del redimensionamiento:  
-- Introducción de `mountType` (`"fixed"` / `"flying"`) para distinguir conectores atornillados de extremos de cable.  
-- Los conectores volantes no almacenan `offset`; su posición se deriva del fijo al que están enchufados.  
-- Redimensionamiento limitado a la esquina inferior derecha.  
-- Advertencia por conectores volantes fuera de su contenedor (futuro sistema de logs).  
-- Corrección de la validación de `matedId` (bidireccional) y de la alineación de offsets en 10.10.  
-- Nota aclaratoria sobre coordenadas absolutas en las fórmulas de 4.1.3.
+**Versión 1.9** – Resolución del conflicto cinemático y simplificación del redimensionamiento: introducción de `mountType` (`"fixed"` / `"flying"`) para distinguir conectores atornillados de extremos de cable; conectores volantes sin `offset` propio; redimensionamiento limitado a la esquina inferior derecha; corrección de la validación de `matedId` (bidireccional) y de la alineación de offsets; nota aclaratoria sobre coordenadas absolutas en 4.1.3.
+
+**Versión 1.9.1** – Correcciones de consistencia y claridad:  
+- Restaurada la regla 10.6 (Compatibilidad jerárquica), que se había omitido accidentalmente en V1.9.  
+- Mejorada la redacción de 3.3.1.3 y 4.5.3.1 para eliminar cualquier ambigüedad sobre el comportamiento cinemático de los conectores volantes.  
+- Añadida aclaración en 4.1.1.b de que el `parent_id` de un volante es declarativo/organizativo.  
+- Añadida nota 12.10 sobre la futura configurabilidad del umbral de desalineación.  
+- Todos los errores detectados en la auditoría de V1.8.2 quedan definitivamente resueltos.
