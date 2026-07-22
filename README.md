@@ -1,4 +1,4 @@
-# VERSIÓN 2.4 – DOCUMENTACIÓN DE ARQUITECTURA DEL VISUALIZADOR DE ARNÉS
+# VERSIÓN 2.3 – DOCUMENTACIÓN DE ARQUITECTURA DEL VISUALIZADOR DE ARNÉS
 
 ---
 
@@ -35,8 +35,6 @@
 
 1.3.9. A partir de la V2.3, se incorporan: **principio de inferencia desde catálogos** (autocompletado automático), **catálogo `colorPalette`** para renderizado SVG, **schema específico por entidad**, **simplificación del catálogo `people`**, **eliminación de `shield` como tipo de señal**, **límite de profundidad jerárquica (4 niveles) con detección de ciclos**, **validación 100% custom** (sin librerías externas), y **arquitectura single-file** (`index.html` + `db.json`).
 
-1.3.10. A partir de la V2.4, se consolida el **modo oscuro como único tema** con paleta de acentos optimizada para evitar conflictos visuales con colores de cables reales (amarillo flúor y violeta oscuro como acentos principales).
-
 ### 1.4 Flujo de trabajo del técnico
 
 1.4.1. La interfaz ofrece dos vistas complementarias y sincronizadas: el **lienzo gráfico 2D (SVG)** y las **tablas de datos**. El usuario puede alternar entre ambas o trabajar con las dos simultáneamente. Cualquier cambio realizado en una vista se propaga instantáneamente a la otra.
@@ -52,7 +50,7 @@
 
 Los elementos que no coinciden se atenúan en la vista visual (opacidad reducida) y se ocultan en la vista tabla. El estado de los filtros se conserva en `localStorage`.
 
-1.4.4. **Persistencia del contexto**: los filtros aplicados, la posición del lienzo y el nivel de zoom se almacenan en `localStorage` del navegador para que el técnico recupere exactamente la vista en la que estaba trabajando.
+1.4.4. **Persistencia del contexto**: los filtros aplicados, la posición del lienzo, el nivel de zoom y el tema se almacenan en `localStorage` del navegador para que el técnico recupere exactamente la vista en la que estaba trabajando.
 
 ### 1.5 Principio de Inferencia desde Catálogos (V2.3)
 
@@ -142,7 +140,7 @@ db.json
 │       ├── connectorModels
 │       ├── wireTypes
 │       ├── nets
-│       └── colorPalette
+│       └── colorPalette   ← Nuevo en V2.3
 └── data
     ├── containers         (array de contenedores T)
     ├── connectors         (array de conectores C)
@@ -156,7 +154,7 @@ db.json
 
 > **Nota histórica (V2.3):** En V2.2, el campo `revision` fue renombrado a `version`. La funcionalidad es idéntica: contador de guardados que incrementa en 1.
 
-2.7.7. **No existe `metadata.uiSettings`** (eliminado en V2.1). Todas las preferencias de interfaz (zoom, posición del lienzo, filtros, vista activa, estado de expansión de contenedores) se almacenan en `localStorage` del navegador. Ver sección 11.9.
+2.7.7. **No existe `metadata.uiSettings`** (eliminado en V2.1). Todas las preferencias de interfaz (tema, zoom, posición del lienzo, filtros, vista activa, estado de expansión de contenedores) se almacenan en `localStorage` del navegador. Ver sección 11.9.
 
 2.7.8. **Arquitectura single-file (V2.3):** La aplicación se entrega como un único archivo **`index.html`** autocontenido (HTML + CSS embebido en `<style>` + JavaScript embebido en `<script>`) más el archivo **`db.json`** externo con los datos del proyecto. No se requieren bundlers, frameworks ni servidores backend. El despliegue en GitHub Pages consiste en subir ambos archivos al repositorio.
 
@@ -371,7 +369,492 @@ La tabla única de entidades facilita la consulta rápida. Se conserva el campo 
 
 ---
 
-[Continúa con las secciones 3-10 sin cambios, luego modifico las secciones de UI...]
+## 3. CONTENEDORES (SYSTEM, ENCLOSURE, PCB)
+
+Son los **contenedores** que definen la estructura física del arnés. No tienen género ni pines; su función es agrupar conectores y limitar su movimiento.
+
+### 3.1 Atributos comunes
+
+**Tabla 2 – Atributos de contenedores**
+
+| Campo       | Tipo         | Descripción |
+|-------------|--------------|-------------|
+| id          | string       | T100, T200, T300… |
+| type        | string       | `"system"`, `"enclosure"`, `"pcb"` |
+| name        | string       | Nombre descriptivo (ej. "Caja 1") |
+| parent_id   | string / null| ID del contenedor padre (`null` solo para el sistema raíz) |
+| designator  | string       | Etiqueta técnica (ej. "BOX1", "PCB1") |
+| position    | object       | **Si `parent_id` es `null`**: `{ x, y }` en píxeles absolutos. **Si `parent_id` no es `null`**: `{ offsetX, offsetY }` en píxeles relativos al padre. |
+| size        | object       | `{ width, height }` en píxeles |
+| owner       | string / null| Ref a `catalogs.people`. Responsable del contenedor. Opcional. |
+| sectionRef  | string / null| Ref a `catalogs.sections`. Sección funcional a la que pertenece. Opcional. |
+| notes       | array        | Histórico de notas (ver 3.1.1) |
+
+#### 3.1.1 Estructura de notas
+
+Cada entrada del array `notes` es un objeto con el formato:
+- `date` (string, ISO 8601): fecha de creación de la nota.
+- `user` (string): identificador del usuario que la escribió.
+- `text` (string, máximo 500 caracteres): contenido del comentario.
+
+El campo `notes` está disponible en **todas** las entidades (contenedores, conectores, wires, mated). Se concibe como un historial acumulativo de anotaciones técnicas.
+
+### 3.2 Catálogo de contenedores
+
+**Tabla 3 – Lista de contenedores del ejemplo**
+
+| ID   | Type       | Nombre         | Padre | Designator | Position (offsetX, offsetY) | Size (w, h) | Owner  | SectionRef | Notas |
+|------|------------|----------------|-------|------------|-----------------------------|-------------|--------|------------|-------|
+| T100 | system     | Moto Eléctrica | null  | EMOTO-Z1   | x:50, y:50 *(absoluto)*     | 2600, 1200  | leo    | –          | –     |
+| T200 | enclosure  | Caja 1         | T100  | BOX1       | 90, 110                     | 950, 1000   | martin | ccu        | –     |
+| T201 | enclosure  | Caja 2         | T100  | BOX2       | 1593, 122                   | 950, 1000   | nico   | sensors    | –     |
+| T300 | pcb        | PCB 1          | T200  | PCB1       | 80, 100                     | 368, 837    | martin | ccu        | –     |
+| T301 | pcb        | PCB 2          | T201  | PCB2       | 427, 117                    | 472, 817    | nico   | sensors    | –     |
+
+**Memoria de diseño – Sección 3**
+El término "contenedores" agrupa system, enclosure y pcb bajo un mismo concepto. La jerarquía de `parent_id` nulo solo en el sistema raíz evita componentes huérfanos. Los valores de posición han sido convertidos a relativos (offsetX/offsetY) excepto para T100, que mantiene coordenadas absolutas por ser la raíz. La separación de `position` y `size` clarifica la estructura de datos.
+
+### 3.3 Movimiento y redimensionamiento
+
+#### 3.3.1 Movimiento de contenedores
+
+3.3.1.1. Al arrastrar un contenedor, todos sus descendientes se desplazan el mismo vector **(dx, dy) en tiempo real**, sin retardo.
+3.3.1.2. El contenedor arrastrado **no modifica su size** ni ninguna otra propiedad; solo cambian sus valores de posición (`offsetX`/`offsetY`, o `x`/`y` si es T100).
+3.3.1.3. Los conectores fijos (`mountType: "fixed"`) se reposicionan automáticamente sobre el borde del padre en el mismo fotograma. Los conectores volantes (`mountType: "flying"`) no están anclados cinemáticamente a su contenedor: su posición se recalcula en cada frame a partir de la posición del conector fijo al que están enchufados. Por tanto, un volante se mueve únicamente si el fijo se mueve (por arrastre directo o por movimiento del contenedor que contiene al fijo). Si el contenedor del volante se mueve pero el fijo no, el volante permanece en su sitio, lo que puede provocar que quede fuera de los límites de su contenedor (ver 10.13, panel de logs).
+
+**Memoria de diseño – 3.3.1**
+El movimiento solidario en tiempo real evita parpadeos. Al ser todas las posiciones relativas, mover un contenedor no requiere actualizar las coordenadas de sus descendientes; el renderizado recalcula las posiciones absolutas a partir de los offsets en cada frame.
+
+#### 3.3.2 Redimensionamiento
+
+3.3.2.1. Los contenedores pueden redimensionarse arrastrando **exclusivamente la esquina inferior derecha**.
+3.3.2.2. Durante el redimensionamiento:
+ a. Los conectores fijos (`mountType: "fixed"`) conservan su distancia a la esquina superior izquierda del contenedor, que es la esquina fija durante el estiramiento.
+ b. Los conectores volantes (`mountType: "flying"`) no se ven afectados por el redimensionamiento de su contenedor padre; su posición se recalcula a partir de su pareja fija en el M.
+
+**Memoria de diseño – 3.3.2**
+La restricción del redimensionamiento a una única esquina (inferior derecha) simplifica la implementación y evita los problemas de redimensionamiento inverso detectados en versiones anteriores.
+
+---
+
+## 4. CONECTORES
+
+Los conectores son los puntos de conexión eléctrica. Cada uno tiene un género, un tipo de montaje y pertenece a un contenedor físico.
+
+### 4.1 Atributos
+
+**Tabla 4 – Atributos de conectores**
+
+| Campo      | Tipo          | Descripción |
+|------------|---------------|-------------|
+| id         | string        | C001, C002… |
+| type       | string        | Siempre `"connector"` |
+| name       | string        | Nombre descriptivo |
+| parent_id  | string        | ID del contenedor donde está ubicado físicamente |
+| designator | string        | Etiqueta técnica (ej. "J1") |
+| pins       | number        | Cantidad de pines |
+| gender     | string        | `"male"` o `"female"` (obligatorio) |
+| mountType  | string        | **Obligatorio.** `"fixed"` o `"flying"` |
+| edgeSide   | string        | **Obligatorio.** `"left"`, `"right"`, `"top"`, `"bottom"` |
+| offset     | number / null | Distancia desde el extremo de referencia del borde. **Solo operativo para `mountType: "fixed"`.** Para `"flying"`, este campo es **ignorado** y puede ser `null` o cualquier valor; no tiene efecto en el posicionamiento ni genera advertencias. |
+| size       | object        | `{ width, height }` en píxeles |
+| matedId    | string / null | ID del acople M al que pertenece, o `null` si está libre |
+| modelRef   | string / null | Ref a `catalogs.connectorModels`. **Opcional, informativo.** |
+| owner      | string / null | Ref a `catalogs.people`. Responsable del conector. Opcional. |
+| notes      | array         | Histórico de notas (ver 3.1.1) |
+
+> **Nota (V2.2):** Los conectores **no tienen campo `sectionRef`**. Siempre heredan la sección de su contenedor padre (ver 2.10.4).
+
+> **⚠️ Nota crítica de precedencia (V2.0):** Los campos `name`, `pins` y `gender` de la instancia en `data` son la **fuente de verdad absoluta**. `modelRef` solo enriquece la vista del panel de detalles con datasheet, fabricante y especificaciones técnicas del catálogo, y proporciona valores para autocompletado (ver 1.5). No se valida coherencia entre catálogo e instancia.
+
+4.1.1. `mountType` define la cinemática del conector:
+ a. **Fijo (`"fixed"`)**: el conector está atornillado o soldado a su contenedor padre. Su posición se calcula a partir de `edgeSide` y `offset`. Al mover el contenedor, el conector se mueve con él.
+ b. **Volante (`"flying"`)**: el conector es el extremo de un cable. No está fijado mecánicamente a su contenedor; su `parent_id` es declarativo/organizativo (indica en qué caja está físicamente el cable, permite calcular el ancestro común para los wires y valida la compatibilidad jerárquica), pero no influye en su posición. Esta se calcula a partir del conector fijo al que está enchufado (su pareja en el M). Al mover el contenedor padre, el conector volante **no se desplaza** con él; sigue a su pareja fija. Si como resultado queda fuera de los límites de su contenedor, el sistema registra una advertencia en el panel de logs (ver 10.13, panel de logs), pero no bloquea la acción.
+
+4.1.2. Definición de `offset` (solo para `mountType: "fixed"`):
+ a. Para `"left"` o `"right"`: `offset` es la distancia desde el borde superior del contenedor padre hasta el borde superior del conector.
+ b. Para `"top"` o `"bottom"`: `offset` es la distancia desde el borde izquierdo del contenedor padre hasta el borde izquierdo del conector.
+
+4.1.3. Cálculo de la posición absoluta en runtime para conectores **fijos**:
+
+| `edgeSide` | `x_global` | `y_global` |
+|------------|------------|------------|
+| `"left"`   | `padre.x` | `padre.y + offset` |
+| `"right"`  | `padre.x + padre.width - conector.width` | `padre.y + offset` |
+| `"top"`    | `padre.x + offset` | `padre.y` |
+| `"bottom"` | `padre.x + offset` | `padre.y + padre.height - conector.height` |
+
+Donde `padre.width` y `padre.height` provienen del `size` del contenedor padre, y `conector.width` y `conector.height` del `size` del conector.
+
+**Nota importante:** `padre.x` y `padre.y` en las fórmulas anteriores son las coordenadas absolutas del contenedor padre, calculadas recursivamente a partir de su `position` y las de sus ancestros. No deben confundirse con los valores `offsetX`/`offsetY` almacenados en el padre.
+
+4.1.4. Cálculo de la posición absoluta para conectores **volantes**:
+ a. Se localiza el conector fijo con el que comparte `matedId`.
+ b. Se aplica la orientación opuesta: si el fijo es `"right"`, el volante se coloca con su borde izquierdo tocando el borde derecho del fijo. Si el fijo es `"left"`, el volante se coloca con su borde derecho tocando el borde izquierdo del fijo. Análogo para `"top"` y `"bottom"`.
+ c. La coordenada perpendicular se alinea por **pin 1**: el pin 1 de ambos conectores queda a la misma altura (o posición horizontal, según la orientación). Los pines adicionales del conector más grande se extienden en la dirección correspondiente.
+
+> **Nota (V2.3):** La alineación por pin 1 asume que ambos conectores tienen la misma orientación de numeración (pin 1 en el extremo superior/izquierdo). Si un conector tiene una numeración no estándar, usar `pinMapping: null` en el acople y especificar los pines manualmente en cada wire/mate.
+
+4.1.5. `matedId` vincula el conector con el acople M que lo une a su pareja. Si el conector participa en un M, aquí se almacena el ID de dicho M.
+
+4.1.6. **Conectores volantes sin pareja (V2.1):** Si un conector tiene `mountType: "flying"` y `matedId: null` (o `matedId` apunta a un M inexistente), se aplica la regla 10.14: se genera un Error en logs, se omite en la visualización SVG, y se resalta en la tabla. El usuario puede editarlo, pero permanecerá marcado hasta que tenga una pareja válida.
+
+4.1.7. **Conectores fijos sin pareja (V2.2):** Si un conector tiene `mountType: "fixed"` y `matedId: null`, es una situación **válida** (conector soldado pero no conectado, reserva para expansión futura). Se genera un mensaje **Info** en el panel de logs: "Conector fijo [ID] no tiene pareja (puede ser intencional)". El conector se dibuja normalmente en el SVG y no se resalta en la tabla.
+
+4.1.8. **Distribución de pines dentro del conector (V2.3):**
+- Los pines se distribuyen **verticalmente** dentro del conector (para `edgeSide: "left"` o `"right"`) u **horizontalmente** (para `"top"` o `"bottom"`).
+- Espaciado entre pines: `conectorHeight / (pins + 1)` para distribución vertical, o `conectorWidth / (pins + 1)` para distribución horizontal.
+- El pin 1 está en la posición más cercana al borde superior (o izquierdo).
+- Cada pin se dibuja como un `<circle>` de radio 5px en el borde del conector.
+- El punto de conexión del wire es el centro del círculo del pin.
+
+**Memoria de diseño – 4.1**
+La introducción de `mountType` en V1.9 resuelve el conflicto cinemático. Los conectores volantes no almacenan `offset` operativo; su posición es siempre derivada de su pareja fija. Los campos `modelRef` y `owner` se añaden en V2.0 como opcionales aditivos. En V2.1 se especifica la alineación por pin 1 y el comportamiento de conectores volantes sin pareja. En V2.2 se elimina `sectionRef` de conectores y se define el comportamiento de conectores fijos sin pareja. En V2.3 se aclara que `offset` es ignorado en volantes, se especifica la distribución de pines, y se añade nota sobre orientación de numeración.
+
+### 4.2 Género y validación
+
+4.2.1. Todo conector tiene género obligatorio (`male` o `female`).
+4.2.2. Los acoples **M** requieren géneros opuestos. No importa cuál es `from` o `to`.
+4.2.3. El sistema verificará la coherencia de géneros al cargar o editar.
+
+### 4.3 Catálogo completo de conectores
+
+**Tabla 5 – Conectores del ejemplo**
+
+| ID   | Nombre     | Padre | Designator | Pines | Género | MountType | EdgeSide | Offset | Size (w,h) | matedId | ModelRef           | Owner  | Notes |
+|------|------------|-------|------------|-------|--------|-----------|----------|--------|------------|---------|--------------------| ------ |-------|
+| C001 | Molex 2P   | T300  | J1         | 2     | male   | fixed     | right    | 100    | 180, 115   | M001    | MOLEX_2P_MALE      | martin | –     |
+| C002 | Molex 2P   | T200  | J2         | 2     | female | flying    | left     | null   | 180, 115   | M001    | MOLEX_2P_FEMALE    | martin | –     |
+| C003 | GX12       | T200  | J3         | 2     | female | fixed     | right    | 740    | 180, 115   | M002    | GX12_2P_FEMALE     | martin | –     |
+| C004 | GX12       | T100  | J4         | 2     | male   | flying    | left     | null   | 180, 115   | M002    | GX12_2P_MALE       | leo    | –     |
+| C005 | GX12 4P    | T100  | J5         | 4     | male   | flying    | right    | null   | 180, 115   | M003    | GX12_4P_MALE       | leo    | –     |
+| C006 | GX12 4P    | T201  | J6         | 4     | female | fixed     | left     | 728    | 180, 115   | M003    | GX12_4P_FEMALE     | nico   | –     |
+| C007 | Molex 5P   | T201  | J7         | 5     | male   | flying    | left     | null   | 180, 115   | M004    | MOLEX_5P_MALE      | nico   | –     |
+| C008 | Molex 5P   | T301  | J8         | 5     | female | fixed     | right    | 71     | 180, 115   | M004    | MOLEX_5P_FEMALE    | nico   | –     |
+| C009 | Molex 2P   | T301  | J9         | 2     | female | fixed     | left     | 251    | 180, 115   | null    | MOLEX_2P_FEMALE    | nico   | Ver nota |
+
+**Nota para C009**: `[{"date":"2026-07-12","user":"leo","text":"Reserva para faro auxiliar"}]`
+
+**Memoria de diseño – 4.3**
+Los conectores C002, C004, C005 y C007 son volantes: son los extremos de los cables. No almacenan `offset` operativo. Los conectores C001, C003, C006, C008 y C009 son fijos. Se añaden `modelRef` y `owner` en V2.0. Cada género del mismo modelo físico tiene su propia entrada en `connectorModels`. C009 es un conector fijo sin pareja (reserva), situación válida que genera Info en logs.
+
+### 4.4 Posicionamiento de conectores
+
+4.4.1. Conector fijo: completamente dentro del contenedor, con la cara de pines exactamente sobre el borde indicado por `edgeSide`.
+4.4.2. Conector volante: su posición se calcula para quedar enfrentado a su pareja fija (ver 4.1.4). Puede quedar fuera de los límites de su contenedor padre; esto genera una advertencia en el panel de logs (10.13, panel de logs) pero no se bloquea.
+4.4.3. Ejemplo: `edgeSide: "right"` en un fijo → borde derecho del conector toca el borde derecho del contenedor.
+
+### 4.5 Movimiento de conectores
+
+4.5.1. **Conectores fijos**: pueden **deslizarse a lo largo del borde** (cambiando su `offset`) o **cambiarse a otro borde** del mismo contenedor si el cursor supera 30 px de distancia perpendicular al borde actual.
+4.5.2. **Conectores volantes**: no pueden arrastrarse directamente. Su posición se actualiza automáticamente al mover el conector fijo al que están enchufados.
+4.5.3. **Propagación rígida del movimiento:**
+ 4.5.3.1. Los conectores unidos mediante un **M** se mueven solidariamente. Al mover un conector fijo (directamente o moviendo su contenedor), el volante asociado se reposiciona automáticamente para mantener el acople, ignorando su propio contenedor a efectos de posición.
+ 4.5.3.2. Los conectores unidos solo por wires no se arrastran entre sí; el cable se redibuja.
+
+---
+
+## 5. CABLES FIJOS (WIRED) — ENTIDAD TIPO W
+
+Representan un conductor físico real (cable soldado o crimpado). No transmiten movimiento mecánico.
+
+### 5.1 Atributos
+
+**Tabla 6 – Atributos de un wire**
+
+| Campo       | Tipo   | Descripción |
+|-------------|--------|-------------|
+| id          | string | W001, W002… |
+| type        | string | Siempre `"wired"` |
+| from        | object | `{ connector: "C002", pin: 1 }` |
+| to          | object | `{ connector: "C003", pin: 1 }` |
+| net         | string | ID del net que transporta (ref a `catalogs.nets`). Obligatorio. |
+| length      | number | Longitud real en mm. **Campo directo y altamente editable.** |
+| gauge       | number / null | Valor numérico del calibre. **Recomendado, no obligatorio.** Si falta, se genera Advertencia en logs. |
+| gaugeUnit   | string / null | `"AWG"` o `"mm2"`. **Opcional.** Si `wireTypeRef` existe, se infiere del catálogo (ver 1.5). Si no existe, defaultea a `"mm2"`. |
+| color       | string | Color de línea (ref a `catalogs.colorPalette`). Defecto: `"black"`. Si el wire tiene `net` y la net tiene `colorCode`, el color se autocompleta desde la net (ver 1.5). |
+| thickness   | number | Grosor en px (opcional) |
+| wireTypeRef | string / null | Ref a `catalogs.wireTypes`. Opcional, informativo. |
+| owner       | string / null | Ref a `catalogs.people`. Opcional. |
+| notes       | array  | Histórico de notas |
+
+> **Nota (V2.3):** El campo `gauge` es **recomendado pero no obligatorio**. La sección del cable no se representa visualmente en el dibujo SVG (el grosor visual lo controla `thickness`), por lo que la ausencia de `gauge` no impide el renderizado. Si `gauge` falta, se genera una **Advertencia** en el panel de logs para recordar al usuario documentarlo. En el ejemplo, todos los wires tienen `gauge` rellenado como buena práctica de documentación.
+
+> **Nota (V2.3):** El campo `gaugeUnit` es **opcional**. Si el wire tiene `wireTypeRef` y el tipo de cable tiene `unit`, `gaugeUnit` se **autocompleta** con ese valor (principio de inferencia, ver 1.5). Si no hay `wireTypeRef`, `gaugeUnit` defaultea a `"mm2"`. El usuario puede sobreescribir el valor autocompletado.
+
+> **Nota (V2.1):** El campo `gauge` es un **number** que vive exclusivamente en la instancia. El catálogo `wireTypes` **no contiene** el valor de gauge; solo aporta información documental (aislación, estándares, temperatura) y la unidad (`unit`).
+
+5.1.1. La ubicación física se deduce automáticamente del ancestro común más bajo de los dos conectores extremos.
+
+### 5.2 Tabla de wires del ejemplo
+
+**Tabla 7 – Wires del arnés**
+
+| ID   | From (C, pin) | To (C, pin) | Net | Longitud | Gauge | GaugeUnit | WireTypeRef        | Owner  |
+|------|---------------|-------------|-----|----------|-------|-----------|--------------------|--------|
+| W001 | C002, 1       | C003, 1     | GND | 150 mm   | 22    | AWG       | AWG22_SHIELDED     | martin |
+| W002 | C004, 1       | C005, 1     | GND | 400 mm   | 22    | AWG       | AWG22_UNSHIELDED   | leo    |
+| W003 | C006, 1       | C007, 2     | GND | 180 mm   | 22    | AWG       | AWG22_SHIELDED     | nico   |
+
+### 5.3 Visualización y comportamiento
+
+5.3.1. Línea curva (Bézier cúbica en SVG) del color especificado en `color` (resuelto mediante `catalogs.colorPalette`), siempre visible.
+5.3.2. Siempre por encima de cajas y conectores.
+5.3.3. Se redibuja como curva adaptable al mover un extremo.
+5.3.4. La línea se acorta/estira libremente; `length` es solo informativo.
+5.3.5. **Wires con extremos inválidos (V2.2):** Si alguno de los dos conectores extremos no tiene posición válida (ej: conector volante sin pareja, regla 10.14), el wire **no se dibuja** en el SVG. El wire sigue apareciendo en la tabla de datos, pero no en la vista visual. No se genera un error adicional por el wire; el error ya se genera por el conector inválido.
+
+5.3.6. **Fórmula de curvas Bézier (V2.3):**
+- Punto de inicio (`x1, y1`): centro del pin de origen (en el borde del conector).
+- Punto de fin (`x2, y2`): centro del pin de destino.
+- Puntos de control: desplazados según el `edgeSide` del conector correspondiente.
+  - Si el conector origen tiene `edgeSide: "right"`, el primer punto de control se desplaza en +X.
+  - Si el conector origen tiene `edgeSide: "left"`, el primer punto de control se desplaza en -X.
+  - Análogo para el conector destino.
+- Magnitud del desplazamiento: `cx = Math.max(50, Math.abs(x2 - x1) * 0.4)`.
+- Path SVG: `M x1,y1 C x1+cx,y1 x2-cx,y2 x2,y2` (para conectores enfrentados left/right).
+- Para orientaciones top/bottom, el desplazamiento es en Y en lugar de X.
+
+---
+
+## 6. ACOPLES ENCHUFABLES (MATED) — ENTIDAD TIPO M
+
+Define una unión macho‑hembra entre dos conectores. Unión rígida: los conectores se mueven juntos, sin línea visual adicional.
+
+### 6.1 Atributos
+
+**Tabla 8 – Atributos de un mated**
+
+| Campo      | Tipo   | Descripción |
+|------------|--------|-------------|
+| id         | string | M001, M002… |
+| type       | string | Siempre `"mated"` |
+| from       | object | `{ connector: "C001", pin: 1 }` |
+| to         | object | `{ connector: "C002", pin: 1 }` |
+| net        | string | ID del net que transporta (ref a `catalogs.nets`) |
+| pinMapping | string / null | `"direct"`, `"reversed"`, o `null`. Si no se especifica, se trata como `null`. |
+| owner      | string / null | Ref a `catalogs.people`. Opcional. |
+| notes      | array  | Histórico de notas |
+
+### 6.2 Validaciones
+
+6.2.1. Los dos conectores deben tener géneros opuestos.
+6.2.2. Si un conector tiene `matedId`, ese ID debe coincidir con el M que lo incluye. Recíprocamente, si un conector aparece en el `from` o `to` de un M, debe tener ese `matedId`. El sistema rechazará cualquier configuración que no cumpla esta correspondencia bidireccional.
+6.2.3. El sistema verificará la coherencia al cargar: cada M debe ser referenciado por sus dos conectores.
+6.2.4. **Composición del M:** un M siempre conecta un conector fijo (`mountType: "fixed"`) con uno volante (`mountType: "flying"`). No se permiten M entre dos fijos ni entre dos volantes.
+6.2.5. **Mapeo de pines:**
+ a. Si `pinMapping` es `"direct"`, el acople respeta el orden natural: pin 1 con pin 1, pin 2 con pin 2, etc. El sistema validará que los pines declarados en `from` y `to` cumplan esta correspondencia.
+ b. Si `pinMapping` es `"reversed"`, el orden se invierte: pin 1 con pin N, pin 2 con N‑1, etc., siendo N el número de pines del conector más pequeño.
+ c. Si `pinMapping` es `null` o no está presente, no se aplica validación automática de mapeo.
+ d. Si los conectores tienen distinto número de pines y `pinMapping` es `"direct"` o `"reversed"`, el sistema emitirá una advertencia informativa indicando cuántos pines del conector más grande quedan sin asignar en este acople.
+
+6.2.6. **Autocompletado de `pinMapping` (V2.3):** Al crear un nuevo mate desde la interfaz, el campo `pinMapping` se autocompleta con `"direct"` como valor sugerido (principio de inferencia, ver 1.5). El usuario puede cambiarlo a `"reversed"` o `null` según necesite. La validación de mapeo solo se activa si el valor es explícitamente `"direct"` o `"reversed"`. Este autocompletado aplica solo a mates **nuevos creados desde la interfaz**. Los mates existentes en el JSON mantienen su valor original (ej: M004 con `pinMapping: null`).
+
+6.2.7. **Limitación del modelo de acople (V2.3):** Un M conecta **exactamente dos conectores** (un `from` y un `to`). Casos atípicos como un conector de N pines conectado a dos conectores de N/2 pines deben representarse como **dos M separados**, cada uno con `pinMapping: null` (sin validación automática, porque el mapeo es parcial). Este caso es extremadamente raro en arneses de motos eléctricas y no se añade complejidad al modelo para soportarlo nativamente.
+
+### 6.3 Tabla de mated del ejemplo
+
+**Tabla 9 – Acoples mated**
+
+| ID   | From (C, pin) | To (C, pin) | Net | pinMapping | Owner  |
+|------|---------------|-------------|-----|------------|--------|
+| M001 | C001, 1       | C002, 1     | GND | direct     | martin |
+| M002 | C004, 1       | C003, 1     | GND | direct     | leo    |
+| M003 | C005, 1       | C006, 1     | GND | direct     | nico   |
+| M004 | C007, 2       | C008, 2     | GND | null       | nico   |
+
+> **Nota (V2.3):** En el ejemplo base, todos los wires y mates comparten la misma net (`GND`), reflejando el caso del MVP original donde todas las conexiones formaban parte de un mismo circuito. Si se desea mostrar diversidad de señales (power, data, communication), se debe crear un ejemplo adicional separado con componentes ficticios, sin modificar el ejemplo base.
+
+### 6.4 Visualización
+
+6.4.1. Sin línea; conectores enfrentados borde con borde.
+6.4.2. La unión rígida se manifiesta en el movimiento solidario.
+6.4.3. **Bloque rígido visual**: dado que un acople M representa una unión física real e inseparable, en la vista gráfica ambos conectores deben aparecer estrictamente enfrentados y sin separación. El usuario no puede separarlos arrastrándolos en modo edición; el volante sigue siempre al fijo. Si la posición matemática deja un espacio, se emite advertencia (ver 10.10).
+
+---
+
+## 7. BLOQUEO DINÁMICO (`lockedWith`)
+
+### 7.1 Generación en runtime
+
+7.1.1. `lockedWith` no se almacena; se calcula a partir de todos los M existentes (todos son activos por definición).
+7.1.2. Cada M hace que ambos conectores se incluyan mutuamente en `lockedWith`.
+7.1.3. Los wires no contribuyen.
+
+### 7.2 Cadenas rígidas
+
+7.2.1. En el ejemplo:
+ a. C001‑C002 (M001)
+ b. C003‑C004 (M002)
+ c. C005‑C006 (M003)
+ d. C007‑C008 (M004)
+7.2.2. Los wires unen estas cadenas pero no las solidarizan mecánicamente.
+
+---
+
+## 8. SEÑALES LÓGICAS (NETS) — CATÁLOGO
+
+### 8.1 Naturaleza de las nets (V2.1)
+
+8.1.1. A partir de la V2.1, las nets **no son entidades de datos** sino **entradas en el catálogo** `metadata.catalogs.nets`. Esto refleja su naturaleza real: las señales eléctricas (GND, +12V, +5V, CAN_H, CAN_L, etc.) son estándares reutilizables entre proyectos, no datos específicos de un arnés.
+
+8.1.2. **No existe `data.nets`.** Los wires y mates referencian las nets por su ID en el catálogo (ej: `"net": "GND"`, `"net": "+12V"`).
+
+8.1.3. **No existe la entidad tipo `N`** en el índice de entidades (Tabla 1). Las nets no tienen ID con prefijo `N001`; usan nombres descriptivos como claves del catálogo.
+
+### 8.2 Atributos de una net en el catálogo
+
+**Tabla 10 – Atributos de una net en `catalogs.nets`**
+
+| Campo       | Tipo          | Descripción |
+|-------------|---------------|-------------|
+| name        | string        | Nombre descriptivo (obligatorio) |
+| signalType  | string        | Categoría: `"power"`, `"ground"`, `"data"`, `"communication"`, `"analog"` (obligatorio). Lista extensible. |
+| voltage     | string / null | Tensión nominal (opcional) |
+| standard    | string / null | Estándar aplicable (ej: "ISO 11898-2" para CAN) |
+| colorCode   | string / null | Color sugerido para visualización (ref a `catalogs.colorPalette`) |
+| description | string / null | Descripción adicional |
+
+> **Nota (V2.3):** El valor `"shield"` ha sido eliminado de `signalType`. El blindaje es una propiedad física del cable (`wireTypes.shielded`), no una señal. La lista de `signalType` es extensible: nuevos tipos pueden añadirse al catálogo en versiones futuras o mediante edición directa del JSON.
+
+### 8.3 Catálogo de nets del ejemplo
+
+**Tabla 11 – Nets definidas en `catalogs.nets`**
+
+| ID (clave) | Nombre          | SignalType | Voltage | Standard    | ColorCode |
+|------------|-----------------|------------|---------|-------------|-----------|
+| GND        | System Ground   | ground     | 0V      | –           | black     |
+
+> **Nota (V2.3):** El ejemplo base utiliza una única net (`GND`) para todas las conexiones, manteniendo coherencia con el MVP original. El catálogo puede contener más nets (ej: `+12V`, `+5V`, `CAN_H`, `CAN_L`) para uso en proyectos reales o ejemplos adicionales, pero el ejemplo base solo usa `GND`.
+
+### 8.4 Uso de nets
+
+8.4.1. Verificar continuidad eléctrica: el sistema examina wires y mateds con el mismo net y construye un grafo de nodos (conector, pin).
+8.4.2. Validar coherencia de señales: todos los wires y mates que comparten un net deben ser eléctricamente compatibles.
+8.4.3. Resaltado visual al seleccionar un net: se resaltan todos los wires y mates que transportan esa señal.
+8.4.4. Autocompletado: al crear un wire o mate, el usuario selecciona el net desde el catálogo (dropdown con todas las nets disponibles). El campo `color` del wire se autocompleta con el `colorCode` de la net seleccionada (ver 1.5).
+8.4.5. Futuro: puntos de chasis implícitos.
+
+### 8.5 Construcción automática del grafo
+
+8.5.1. El sistema examina wires y mateds con el mismo net y construye un grafo de nodos (conector, pin).
+8.5.2. La ruta del ejemplo para `GND`: C001.pin1 – C002.pin1 – C003.pin1 – C004.pin1 – C005.pin1 – C006.pin1 – C007.pin2 – C008.pin2.
+
+> **Nota (V2.3):** En el ejemplo, todos los tramos comparten la net `GND`, reflejando un circuito único. En un arnés real, cada tramo llevaría su señal específica (power, data, ground, etc.). La diversidad de señales se muestra en ejemplos adicionales, no en el ejemplo base.
+
+---
+
+## 9. ÁRBOL DE CONTENCIÓN (JERARQUÍA FÍSICA)
+
+### 9.1 Diagrama jerárquico
+
+```
+T100 (Moto) [owner: leo]
+├── T200 (Caja 1) [owner: martin, section: ccu]
+│   ├── T300 (PCB 1) [owner: martin, section: ccu]
+│   │   └── C001 (J1, male, fixed, right) → hereda section: ccu
+│   ├── C002 (J2, female, flying, left) → hereda section: ccu
+│   └── C003 (J3, female, fixed, right) → hereda section: ccu
+├── T201 (Caja 2) [owner: nico, section: sensors]
+│   ├── T301 (PCB 2) [owner: nico, section: sensors]
+│   │   ├── C008 (J8, female, fixed, right) → hereda section: sensors
+│   │   └── C009 (J9, female, fixed, left) → hereda section: sensors
+│   ├── C006 (J6, female, fixed, left) → hereda section: sensors
+│   └── C007 (J7, male, flying, left) → hereda section: sensors
+├── C004 (J4, male, flying, left) → hereda section: null (T100 no tiene sectionRef)
+└── C005 (J5, male, flying, right) → hereda section: null
+```
+
+### 9.2 Ubicación efectiva de los wires
+
+9.2.1. W001: dentro de T200.
+9.2.2. W002: en T100.
+9.2.3. W003: en T201.
+
+---
+
+## 10. REGLAS DE CONSISTENCIA Y VALIDACIONES
+
+10.1. **Género en M:** géneros opuestos obligatorios.
+10.2. **Integridad de matedId:** si un conector tiene `matedId`, ese M debe existir, contener al conector, y ambos conectores del M deben tener el mismo `matedId`. Recíprocamente, si un conector aparece en el `from` o `to` de un M, debe tener ese `matedId`; el sistema rechazará cualquier configuración que no cumpla esta correspondencia bidireccional.
+10.3. **Obligatoriedad de edgeSide y mountType:** todo conector debe tener `edgeSide` y `mountType` definidos.
+10.4. **Composición de M:** un M conecta un fijo con un volante.
+10.5. **Pines válidos:** los pines referenciados deben existir en los conectores (el número de pin debe ser ≤ `pins` del conector).
+10.6. **Compatibilidad jerárquica:** dos conectores solo pueden conectarse (mediante un cable W o un acople M) si comparten un ancestro contenedor común en el árbol de contención. En caso contrario, el sistema rechazará la conexión.
+10.7. **Longitud de wire:** `length` es informativo, sin restricción.
+10.8. **Continuidad de nets:** el grafo del net debe ser conexo; se detectan conflictos de señales.
+10.9. **Mapeo de pines (opcional):** si `pinMapping` es `"direct"` o `"reversed"`, los pines `from` y `to` deben cumplir el orden declarado. Si los conectores tienen distinto número de pines, se emitirá una advertencia informativa sobre los pines no asignados.
+10.10. **Enfrentamiento de pines en M:** los dos conectores que comparten un `matedId` deben tener orientaciones opuestas. Adicionalmente, el sistema verificará que las posiciones estén alineadas en la coordenada perpendicular al borde. Para acoples left/right, la diferencia entre sus coordenadas Y globales no debe superar los 2 píxeles. Para acoples top/bottom, la diferencia entre sus coordenadas X globales no debe superar los 2 píxeles. Si se supera este umbral, se emitirá una advertencia de desalineación.
+
+### 10.11 Validación de Referencias (`ref`)
+
+10.11.1. El sistema debe verificar que todos los campos con regla `ref` en `metadata.schema` apunten a IDs existentes en su destino correspondiente:
+- `parent_id` → ID existente en `data.containers`.
+- `modelRef` → clave existente en `metadata.catalogs.connectorModels`.
+- `wireTypeRef` → clave existente en `metadata.catalogs.wireTypes`.
+- `sectionRef` → clave existente en `metadata.catalogs.sections` (solo en contenedores).
+- `owner` y `savedBy` → clave existente en `metadata.catalogs.people`.
+- `net` → clave existente en `metadata.catalogs.nets`.
+- `from.connector` y `to.connector` → ID existente en `data.connectors`.
+- `color` y `colorCode` → clave existente en `metadata.catalogs.colorPalette`.
+
+10.11.2. Si una referencia apunta a un ID inexistente, se genera un **Error** en el panel de logs.
+10.11.3. Si el campo es `null` o no existe y es opcional, no se genera error.
+10.11.4. Si un campo `color` o `colorCode` referencia una clave inexistente en `colorPalette`, se usa el color gris por defecto (`#6b7280`) y se emite una **Advertencia**.
+
+### 10.12 Validación de Unicidad (`unique`)
+
+10.12.1. Los campos marcados con `"unique": true` en `metadata.schema` deben tener valores distintos en todas las entidades del mismo array.
+10.12.2. Si se detecta un valor duplicado, se genera un **Error** en el panel de logs indicando cuáles entidades comparten el mismo valor.
+10.12.3. La regla `"id"` sin prefijo aplica a todas las entidades de todos los arrays en `data`.
+
+### 10.13 Panel de Logs (Activo)
+
+10.13.1. El panel de logs es un contenedor ubicado en la base de la pantalla, colapsable hacia abajo mediante transición CSS (`translate-y-full`).
+
+10.13.2. **Tres niveles de severidad:**
+- **Error** (rojo `#ef4444`): Problemas que impiden la coherencia del modelo (referencias rotas, unicidad violada, géneros iguales en un M, conectores volantes sin pareja, ciclos jerárquicos, etc.).
+- **Advertencia** (amarillo `#ffcc00`): Inconsistencias que no rompen el modelo pero merecen atención (conector volante fuera de contenedor padre, desalineación de M, campos recomendados ausentes como `gauge` o `owner`, color inexistente en colorPalette).
+- **Info** (azul `#3b82f6`): Mensajes informativos (carga exitosa, exportación completada, pines no asignados en un M con distinto número de pines, conector fijo sin pareja).
+
+10.13.3. El panel integra automáticamente los resultados de la función unificada `validateProject()` (ver 2.9.3), que incluye:
+- La validación del `schema` custom (required, recommended, pattern, unique, ref).
+- Las reglas de negocio (secciones 10.1 a 10.12 y 10.14 a 10.16). La sección 10.13 describe el panel de logs en sí, no una regla de validación.
+- Eventos de usuario relevantes (importación, exportación, borrado).
+
+10.13.4. El panel incluye:
+- Filtro por tipo de mensaje (mostrar/ocultar errores, advertencias, info).
+- Botón para limpiar todos los logs.
+- Contador de mensajes por nivel.
+- Timestamp en cada entrada.
+
+### 10.14 Conectores Volantes sin Pareja (V2.1)
+
+10.14.1. Si un conector tiene `mountType: "flying"` y `matedId: null` (o `matedId` apunta a un M inexistente), se genera un **Error** en el panel de logs con el mensaje: "Conector volante [ID] no tiene pareja válida (matedId nulo o inexistente)".
+
+10.14.2. **En la vista visual (SVG):** el conector **no se dibuja**. Se omite completamente del renderizado SVG. Los wires conectados a ese conector tampoco se dibujan (ver 5.3.5).
+
+10.14.3. **En la vista tabla:** la fila del conector se **resalta con un borde rojo** (`border: 2px solid #ef4444`) y un ícono de error. El resaltado persiste hasta que el conector tenga un `matedId` válido.
+
+10.14.4. El usuario **puede editar** el conector desde el panel `details` o la tabla (cambiar `matedId`, `mountType`, etc.). Una vez que el conector tiene un `matedId` válido, el error desaparece del log, el resaltado se elimina, y el conector se dibuja normalmente en el SVG.
+
+10.14.5. Esta regla no bloquea la carga del archivo ni impide otras operaciones. Es una advertencia visual persistente.
+
+### 10.15 Offset en Conectores Volantes (V2.3)
+
+10.15.1. Si un conector tiene `mountType: "flying"`, el campo `offset` es **ignorado** por el sistema. Puede ser `null`, `0`, o cualquier valor numérico; no tiene efecto en el posicionamiento ni genera advertencias ni errores.
+
+10.15.2. Esta regla es de **tolerancia**: permite que archivos JSON con datos heredados o editados manualmente no generen ruido innecesario en los logs por un campo que no aplica a conectores volantes.
+
+### 10.16 Límite de Profundidad Jerárquica y Detección de Ciclos (V2.3)
+
+10.16.1. **Límite de profundidad:** La cadena de `parent_id` en contenedores tiene un límite máximo de **4 niveles** de profundidad (contando desde 0). Esto cubre el modelo actual (system → enclosure → pcb, profundidad 2) con dos niveles de margen para expansión (ej: system → enclosure → sub-enclosure → pcb, profundidad 3). Si se supera el límite, se emite un **Error**: "Jerarquía demasiado profunda en [ID] (máximo 4 niveles)".
+
+10.16.2. **Detección de ciclos:** La cadena de `parent_id` no debe contener ciclos. Un ciclo ocurre cuando un contenedor es ancestro de sí mismo (ej: T200.parent_id = T300 y T300.parent_id = T200). El sistema detecta ciclos mediante un conjunto de IDs visitados durante el recorrido recursivo. Si se detecta un ciclo, se emite un **Error**: "Ciclo jerárquico detectado en [ID]" y se detiene el cálculo de posiciones y herencia para los contenedores involucrados.
+
+10.16.3. **Herencia de `sectionRef`:** La cadena de herencia de sección (ver 2.10.4) respeta el mismo límite de 4 niveles. Si se supera, se emite Error y se detiene la herencia.
+
+10.16.4. **Cálculo de posiciones absolutas:** El cálculo recursivo de posiciones absolutas (ver 4.1.3) también respeta el límite de 4 niveles y la detección de ciclos. Si se detecta un ciclo o se supera el límite, los contenedores afectados se posicionan en (0, 0) como fallback y se emite Error.
 
 ---
 
@@ -482,6 +965,7 @@ La tabla única de entidades facilita la consulta rápida. Se conserva el campo 
 - Selector de columnas visibles (para la vista tabla).
 - Opciones de zoom (entrada numérica + botones +/−).
 - Toggle para mostrar/ocultar nombres de conectores, designadores, longitud de cables, etc.
+- Selector de tema (Oscuro / Claro). **Esta preferencia se guarda en `localStorage`, no en el JSON.**
 
 **c) Gestión de Datos:**
 - Botón **Importar JSON** (atajo `Ctrl+O`).
@@ -511,7 +995,7 @@ La tabla única de entidades facilita la consulta rápida. Se conserva el campo 
 1. Al importar un archivo JSON, el sistema verifica la presencia de campos obsoletos: `data.nets`, `metadata.uiSettings`, `signalTypeRef`, `sectionRef` en conectores, `revision` en metadata, `shield` en signalType de nets.
 2. Si se detecta alguno de estos campos, se **rechaza la importación** y se muestra un modal:
    - Título: "Formato no compatible"
-   - Mensaje: "Este archivo parece ser de una versión anterior. No se puede importar directamente. Actualice el archivo manualmente al formato V2.4."
+   - Mensaje: "Este archivo parece ser de una versión anterior. No se puede importar directamente. Actualice el archivo manualmente al formato V2.3."
    - Opciones: **[Entendido]**
 3. No se intenta migración automática.
 
@@ -564,30 +1048,33 @@ La tabla única de entidades facilita la consulta rápida. Se conserva el campo 
 | `Esc`          | Cerrar panel lateral / Deseleccionar todo |
 | `F`            | Activar/desactivar filtro de búsqueda     |
 
-### 11.8 Estética Visual (V2.4 - Solo Dark Mode)
+### 11.8 Estética Visual
 
-11.8.1. **Tema Oscuro (único tema disponible):**
+11.8.1. **Tema Oscuro (por defecto):**
 - Fondo general: `#000000` (negro puro).
 - Tarjetas / paneles: `#121212` a `#1e1e1e`.
 - Bordes sutiles: `#2a2a2a`.
 - Texto principal: `#f0f0f0` (blanco suave).
 - Texto secundario: `#9ca3af`.
-- **Acento primario: Amarillo flúor** (`#ffff00`) - para selección, hover, elementos activos.
-- **Acento secundario: Violeta oscuro** (`#9333ea`) - para elementos secundarios, links, badges.
+- Acentos: **Amarillo flúor** (`#ffff00`, `#ffcc00`) sobre negro/gris oscuro.
 - Error: `#ef4444` (rojo).
-- Advertencia: `#ffcc00` (amarillo ámbar).
+- Advertencia: `#ffcc00` (amarillo).
 - Info: `#3b82f6` (azul).
-
-> **Nota de diseño (V2.4):** La paleta de acentos se ha optimizado para evitar conflictos visuales con los colores típicos de cables eléctricos (rojo, negro, blanco, amarillo, verde, azul, naranja, marrón, gris, violeta). El amarillo flúor (`#ffff00`) y el violeta oscuro (`#9333ea`) son colores que rara vez aparecen en arneses reales, lo que permite distinguir claramente los elementos de UI interactivos de los cables representados en el SVG.
 
 11.8.2. **Efecto Neumórfico sutil:**
 - Sombras dobles sobre elementos elevados: `box-shadow: 6px 6px 12px rgba(0,0,0,0.6), -6px -6px 12px rgba(40,50,80,0.15);`
 - Elementos hundidos (inputs): `box-shadow: inset 4px 4px 8px rgba(0,0,0,0.5), inset -4px -4px 8px rgba(40,50,80,0.1);`
 - Bordes redondeados: `border-radius: 1rem` a `1.5rem`.
 
-11.8.3. **Transiciones:** `transition: all 0.25s ease` en hover, selección, apertura/cierre de paneles.
+11.8.3. **Tema Claro (opcional, menor prioridad):**
+- Fondo: `#ffffff`.
+- Tarjetas: `#f5f5f5`.
+- Acentos: Azul oscuro (`#1e3a8a`) o verde (`#059669`).
+- Texto: `#000000` / `#333333`.
 
-11.8.4. **Feedback visual:** Hover sobre elementos interactivos (cambio sutil de brillo/sombra). Selección activa (borde amarillo flúor + glow). Elemento en arrastre (opacidad reducida + sombra más profunda).
+11.8.4. **Transiciones:** `transition: all 0.25s ease` en hover, selección, apertura/cierre de paneles.
+
+11.8.5. **Feedback visual:** Hover sobre elementos interactivos (cambio sutil de brillo/sombra). Selección activa (borde amarillo flúor + glow). Elemento en arrastre (opacidad reducida + sombra más profunda).
 
 ### 11.9 Persistencia: JSON vs localStorage (V2.1)
 
@@ -596,11 +1083,12 @@ La tabla única de entidades facilita la consulta rápida. Se conserva el campo 
 | Almacenamiento | Contenido | Persistencia |
 |----------------|-----------|--------------|
 | **`db.json`** (archivo) | Datos del proyecto: `metadata` (projectInfo, schema, catalogs, savedBy, lastSave, version) y `data` (containers, connectors, wires, mates). | Se guarda al exportar. Se versiona en Git. |
-| **`localStorage`** (navegador) | Preferencias del usuario: zoom actual, posición del lienzo (pan), filtros aplicados, última vista usada (tabla/visual), estado de expansión de contenedores. | Persiste entre sesiones del mismo navegador. No se exporta. |
+| **`localStorage`** (navegador) | Preferencias del usuario: tema, zoom actual, posición del lienzo (pan), filtros aplicados, última vista usada (tabla/visual), estado de expansión de contenedores. | Persiste entre sesiones del mismo navegador. No se exporta. |
 
 11.9.2. **No existe `metadata.uiSettings`** en el JSON. Todas las preferencias de UI son locales del usuario y se guardan en `localStorage`.
 
 11.9.3. **Claves de localStorage sugeridas:**
+- `arnesviz.theme`: `"dark"` | `"light"`
 - `arnesviz.zoom`: number
 - `arnesviz.pan`: `{ x, y }`
 - `arnesviz.filters`: objeto con estado de filtros
@@ -711,9 +1199,9 @@ La tabla única de entidades facilita la consulta rápida. Se conserva el campo 
 12.10. Exportación a formatos adicionales (PDF, imagen SVG, BOM).
 12.11. Integración con herramientas CAD (KiCad, Altium) para importación de netlists.
 12.12. Sincronización en tiempo real multiusuario (colaboración).
-12.13. **Edición completa de catálogos desde la UI (V2.2):** En V2.2/V2.3/V2.4, los catálogos son de solo lectura en la interfaz. La edición se realiza directamente en el archivo JSON. En una versión futura, se implementará una UI completa para añadir, editar y eliminar entradas de catálogos (people, sections, connectorModels, wireTypes, nets, colorPalette) con validación de referencias y protección contra eliminación de elementos en uso. Esto incluye la posibilidad de añadir o quitar valores de `signalType` y personalizar la paleta de colores.
+12.13. **Edición completa de catálogos desde la UI (V2.2):** En V2.2/V2.3, los catálogos son de solo lectura en la interfaz. La edición se realiza directamente en el archivo JSON. En una versión futura, se implementará una UI completa para añadir, editar y eliminar entradas de catálogos (people, sections, connectorModels, wireTypes, nets, colorPalette) con validación de referencias y protección contra eliminación de elementos en uso. Esto incluye la posibilidad de añadir o quitar valores de `signalType` y personalizar la paleta de colores.
 12.14. **Migración a IndexedDB (V2.2):** El autosave y las preferencias se guardan en `localStorage`, que tiene un límite de ~5-10 MB. Para proyectos muy grandes, se sugiere migrar a `IndexedDB` (límite ~50 MB+) en una versión futura.
-12.15. **Herramienta de migración de archivos (V2.2):** Actualmente, los archivos de versiones anteriores (V1.9.1, V2.0, V2.1, V2.2, V2.3) son rechazados al importar. En una versión futura, se podría implementar una herramienta de migración automática que convierta archivos antiguos al formato vigente.
+12.15. **Herramienta de migración de archivos (V2.2):** Actualmente, los archivos de versiones anteriores (V1.9.1, V2.0, V2.1, V2.2) son rechazados al importar. En una versión futura, se podría implementar una herramienta de migración automática que convierta archivos antiguos al formato vigente.
 
 > **Nota:** El antiguo punto 12.9 de V1.9.1 (Sistema de registro de eventos / logs) fue promovido a implementación activa en la sección 10.13 de V2.0.
 
@@ -754,8 +1242,6 @@ La tabla única de entidades facilita la consulta rápida. Se conserva el campo 
 **Versión 2.2** – Toggle de modo edición en header, barra lateral con memoria de estado, eliminada regla de coherencia modelo/instancia, eliminado `sectionRef` de conectores, `metadata.revision` renombrado a `version`, gauge como campo recomendado, conectores fijos sin pareja (Info en logs), wires con extremos inválidos omitidos en SVG, validación unificada, filtros intermedios, protección de catálogos, detección de archivos incompatibles, documentación de GitHub Pages, manejo de errores de localStorage.
 
 **Versión 2.3** – Principio de inferencia desde catálogos (autocompletado automático, sección 1.5), catálogo `colorPalette` para renderizado SVG, schema específico por entidad (required/recommended por tipo), simplificación del catálogo `people` (solo nombre), eliminación de `owners` en `sections`, eliminación de `shield` de `signalType`, `gaugeUnit` opcional con inferencia desde catálogo (default `"mm2"`), `pinMapping` autocompletado como `"direct"` en UI (solo para mates nuevos), limitación de M documentada (dos conectores por acople), `offset` ignorado en volantes (sin advertencia), límite de profundidad jerárquica de 4 niveles con detección de ciclos (regla 10.16), validación 100% custom (sin AJV ni librerías externas), arquitectura single-file (`index.html` + `db.json`), mecánica de pan con botón medio del mouse, fórmula de curvas Bézier documentada, distribución de pines documentada, orden de renderizado (Z-index) documentado, creación/eliminación/duplicación de entidades documentada, tabla nativa HTML documentada, responsive con panel overlay, ejemplo base restaurado (todos los M/W comparten net `GND`), correcciones de referencias cruzadas (3.3.1.3, 4.1.1.b, 4.4.2, 10.13.3), nota histórica sobre renombramiento revision→version, color por defecto cambiado a `"black"`.
-
-**Versión 2.4** – Consolidación del modo oscuro como único tema disponible (eliminación completa del tema claro), optimización de la paleta de acentos para evitar conflictos visuales con colores de cables reales (amarillo flúor `#ffff00` y violeta oscuro `#9333ea` como acentos principales), eliminación del selector de tema en panel de configuración, eliminación de la clave `arnesviz.theme` de localStorage.
 
 ---
 
@@ -1260,19 +1746,39 @@ A continuación se muestra un archivo `db.json` completo y válido que implement
   }
 }
 ```
+
 ---
 
-## APÉNDICE B – RESUMEN DE CAMBIOS V2.3 → V2.4
+## APÉNDICE B – RESUMEN DE CAMBIOS V2.2 → V2.3
 
-| Cambio | V2.3 | V2.4 |
+| Cambio | V2.2 | V2.3 |
 |--------|------|------|
-| **Temas disponibles** | Dark mode (default) + Light mode (opcional) | **Solo Dark mode** |
-| **Acentos de UI** | Amarillo flúor | **Amarillo flúor** (`#ffff00`) primario + **Violeta oscuro** (`#9333ea`) secundario |
-| **Selector de tema** | Presente en panel config (11.5.2b) | **Eliminado** |
-| **Clave `arnesviz.theme`** | Presente en localStorage | **Eliminada** |
-| **Sección 11.8.3 (Tema Claro)** | Presente | **Eliminada completamente** |
-| **Diseño de paleta** | Genérico | **Optimizado para evitar conflictos con colores de cables** |
+| **Principio de inferencia** | No existía | **Nueva sección 1.5**: autocompletado desde catálogos |
+| **Catálogo `people`** | name, alias, role, notes | **Solo `name`** |
+| **Catálogo `sections`** | name, owners | **Solo `name`** (owners eliminado) |
+| **`signalType` en nets** | power, ground, data, communication, analog, shield | **shield eliminado**. Lista extensible |
+| **Catálogo `colorPalette`** | No existía | **Nuevo**: mapeo de nombres a hexadecimales |
+| **Schema** | Genérico (`required: ["id", "type"]`) | **Específico por entidad** (containers, connectors, wires, mates) |
+| **`gaugeUnit` en wires** | Recomendado, default "mm2" | **Opcional**, inferido del catálogo si wireTypeRef existe, default "mm2" |
+| **`color` en wires** | Defecto "blue" | **Defecto "black"**, autocompletado desde net |
+| **`pinMapping` en mates** | null o no definido | **Autocompletado como "direct"** en UI (solo mates nuevos). Mates existentes mantienen su valor |
+| **Limitación de M** | No documentada | **Documentada**: dos conectores por acople. Casos atípicos con dos M separados |
+| **`offset` en volantes** | null (no especificado comportamiento con valor) | **Ignorado** sin advertencia |
+| **Profundidad jerárquica** | Sin límite | **Máximo 4 niveles** + detección de ciclos |
+| **Validación** | AJV mencionado | **100% custom** (sin librerías externas) |
+| **Arquitectura** | No especificada | **Single file**: `index.html` + `db.json` |
+| **Pan en SVG** | No especificado | **Botón medio del mouse** (o Shift + click izquierdo) |
+| **Curvas Bézier** | No especificado | **Fórmula documentada** (puntos de control según edgeSide) |
+| **Distribución de pines** | No especificado | **Documentada**: vertical/horizontal, espaciado, pin 1 arriba/izquierda |
+| **Z-index** | No especificado | **Orden documentado**: fondo → contenedores → conectores → cables → pines → overlay |
+| **Crear/Eliminar/Duplicar** | No especificado | **Documentado**: botones en tabla y panel details |
+| **Tabla de datos** | No especificado | **HTML nativa**, edición inline, resaltado de errores |
+| **Responsive** | No especificado | **Panel overlay**, 100% ancho en móvil |
+| **Ejemplo base** | Nets variadas (GND, +12V, +5V) | **Restaurado**: todos comparten `GND` |
+| **Alineación pin 1** | Sin nota sobre orientación | **Nota añadida**: asume misma orientación de numeración |
+| **Referencias cruzadas** | Algunas imprecisas | **Corregidas**: 3.3.1.3, 4.1.1.b, 4.4.2, 10.13.3 |
+| **Nota histórica version** | No existía | **Añadida** en 2.7.6: revision→version en V2.2 |
 
 ---
 
-**FIN DE LA DOCUMENTACIÓN – VERSIÓN 2.4**
+**FIN DE LA DOCUMENTACIÓN – VERSIÓN 2.3**
