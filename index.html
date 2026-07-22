@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -50,7 +49,8 @@
             align-items: center;
             border-bottom: 1px solid var(--panel-border);
             min-height: 50px; /* Minimum fixed height */
-            box-shadow: 0 2px 4px var(--neumorph-dark); /* Basic neumorphism */
+            /* Exact Neumorphism Raised (11.8.2) */
+            box-shadow: 6px 6px 12px rgba(0,0,0,0.6), -6px -6px 12px rgba(40,50,80,0.15);
         }
 
         .header-left, .header-center, .header-right {
@@ -93,11 +93,14 @@
             display: flex;
             align-items: center;
             gap: 0.5rem;
+            /* Exact Neumorphism Sunken (11.8.2) */
+            box-shadow: inset 4px 4px 8px rgba(0,0,0,0.5), inset -4px -4px 8px rgba(40,50,80,0.1);
         }
 
         .btn-edit-mode:hover, .btn-config:hover {
             background-color: var(--neumorph-light);
-            box-shadow: inset 2px 2px 4px var(--neumorph-dark), 2px 2px 4px var(--neumorph-light);
+            /* Invert sunken effect on hover */
+            box-shadow: 4px 4px 8px rgba(0,0,0,0.5), -4px -4px 8px rgba(40,50,80,0.1);
         }
 
         .btn-edit-mode.active {
@@ -134,9 +137,10 @@
             height: 100vh;
             background-color: var(--panel-bg);
             border-left: 1px solid var(--panel-border);
-            box-shadow: -2px 0 8px var(--neumorph-dark);
+            /* Exact Neumorphism Raised (11.8.2) */
+            box-shadow: -6px 0 12px rgba(0,0,0,0.6), 6px 0 12px rgba(40,50,80,0.15);
             z-index: 1000;
-            transition: right 0.3s ease;
+            transition: right 0.25s ease; /* Updated transition duration (11.8.3) */
             display: flex;
             flex-direction: column;
             overflow: hidden; /* For internal scrolling */
@@ -229,20 +233,136 @@
         .log-entry.warning { background-color: rgba(255, 204, 0, 0.1); border-left: 3px solid var(--warning); }
         .log-entry.info { background-color: rgba(59, 130, 246, 0.1); border-left: 3px solid var(--info); }
 
+        /* Responsive Sidebar (<768px, 11.13.2) */
+        @media (max-width: 768px) {
+            .sidebar.open {
+                width: 100vw; /* Full width on mobile */
+                right: 0; /* Ensure it covers the screen when open */
+            }
+        }
+
+        /* Filter Search Input (for F shortcut) */
+        #filter-search {
+            display: none; /* Hidden by default */
+            padding: 0.4rem 0.8rem;
+            background-color: var(--neumorph-light);
+            border: 1px solid var(--panel-border);
+            color: var(--text-main);
+            border-radius: 6px;
+            margin-left: 0.5rem;
+        }
+
+        /* Welcome Screen */
+        .welcome-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background-color: var(--bg-primary);
+            z-index: 100; /* Cover everything */
+        }
+
+        .welcome-screen.hidden {
+            display: none;
+        }
+
+        .welcome-buttons {
+            margin-top: 2rem;
+            display: flex;
+            gap: 1rem;
+        }
+
+        .btn-welcome {
+            padding: 0.8rem 1.5rem;
+            font-size: 1rem;
+            background-color: var(--accent-primary);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+
+        /* Modal */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+        }
+
+        .modal {
+            background-color: var(--panel-bg);
+            padding: 1.5rem;
+            border-radius: 8px;
+            max-width: 500px;
+            width: 90%;
+            border: 1px solid var(--panel-border);
+        }
+
+        .modal-header {
+            margin-bottom: 1rem;
+        }
+
+        .modal-body {
+            margin-bottom: 1.5rem;
+        }
+
+        .modal-footer {
+            display: flex;
+            justify-content: flex-end;
+            gap: 0.5rem;
+        }
+
+        .modal-btn {
+            padding: 0.5rem 1rem;
+            border: 1px solid var(--panel-border);
+            background-color: var(--neumorph-light);
+            cursor: pointer;
+            border-radius: 4px;
+        }
+
+        /* Selection Glow */
+        .selection-glow {
+            filter: drop-shadow(0 0 8px var(--accent-secondary));
+        }
 
     </style>
 </head>
 <body>
 
+    <!-- Welcome Screen -->
+    <div class="welcome-screen" id="welcome-screen">
+        <h1>Welcome to ArnesViz</h1>
+        <p>No project found. Please import an existing project or create a new one.</p>
+        <div class="welcome-buttons">
+            <button id="btn-import-welcome" class="btn-welcome">Import JSON</button>
+            <button id="btn-create-welcome" class="btn-welcome">Create New Project</button>
+        </div>
+    </div>
+
     <header>
         <div class="header-left">
             <span>ArnesViz</span>
             <span id="file-name">- No Project Loaded -</span>
+            <!-- Added filter search input -->
+            <input type="text" id="filter-search" placeholder="Search...">
         </div>
         <div class="header-center">
             <div class="view-tabs">
-                <div class="view-tab active" data-view="visual">Visual</div>
+                <!-- Reordered tabs: Table first, Visual second -->
                 <div class="view-tab" data-view="table">Table</div>
+                <div class="view-tab" data-view="visual">Visual</div>
             </div>
         </div>
         <div class="header-right">
@@ -256,8 +376,10 @@
     </header>
 
     <div class="work-area">
-        <div id="svg-container"> <!-- Placeholder for SVG -->
-            <p>SVG Visualization will go here.</p>
+        <div id="svg-container">
+            <svg id="svg-canvas" width="100%" height="100%" style="background-color: black;">
+                <g id="viewport"></g>
+            </svg>
         </div>
         <div id="table-container"> <!-- Placeholder for Table -->
             <p>Data Table will go here.</p>
@@ -271,6 +393,12 @@
         </div>
         <div class="sidebar-content" id="sidebar-content">
             <p>Sidebar content will appear here based on state.</p>
+            <!-- Config Buttons -->
+            <div id="config-buttons" style="display: none;">
+                <button id="btn-import-config" class="btn-config">Import JSON</button>
+                <button id="btn-export-config" class="btn-config">Export JSON</button>
+            </div>
+            <input type="file" id="file-input" accept=".json" style="display: none;">
         </div>
     </div>
 
@@ -283,19 +411,87 @@
             </div>
         </div>
         <div class="log-content" id="log-content">
-            <div class="log-entry info">[INFO] Application started. Ready to load project.</div>
+            <!-- Log entries will be rendered here -->
+        </div>
+    </div>
+
+    <!-- Modal Template -->
+    <div class="modal-overlay" id="modal-overlay" style="display: none;">
+        <div class="modal">
+            <div class="modal-header"><h3 id="modal-title">Modal Title</h3></div>
+            <div class="modal-body"><p id="modal-message">Modal Message</p></div>
+            <div class="modal-footer">
+                <button class="modal-btn" id="modal-btn-ok">OK</button>
+                <button class="modal-btn" id="modal-btn-cancel">Cancel</button>
+                <button class="modal-btn" id="modal-btn-export">Export and Continue</button>
+                <button class="modal-btn" id="modal-btn-discard">Discard and Continue</button>
+                <button class="modal-btn" id="modal-btn-restore">Restore</button>
+                <button class="modal-btn" id="modal-btn-discard-autosave">Discard</button>
+            </div>
         </div>
     </div>
 
     <script>
         // --- Reactive Global State Management ---
+        let _isUpdatingState = false; // Flag added
+
+        // Read initial values from localStorage if available
+        const savedActiveView = (() => {
+            try {
+                return localStorage.getItem('arnesviz.activeView') || 'table'; // Default to 'table'
+            } catch (e) {
+                console.warn("Could not read arnesviz.activeView from localStorage:", e);
+                return 'table';
+            }
+        })();
+        const savedEditMode = (() => {
+            try {
+                return JSON.parse(localStorage.getItem('arnesviz.editMode')) || false;
+            } catch (e) {
+                console.warn("Could not read arnesviz.editMode from localStorage:", e);
+                return false;
+            }
+        })();
+        const savedZoom = (() => {
+            try {
+                const val = parseFloat(localStorage.getItem('arnesviz.zoom'));
+                return isNaN(val) ? 1.0 : Math.max(0.2, Math.min(3.0, val)); // Clamp to 0.2-3.0
+            } catch (e) {
+                console.warn("Could not read arnesviz.zoom from localStorage:", e);
+                return 1.0;
+            }
+        })();
+        const savedPan = (() => {
+            try {
+                const str = localStorage.getItem('arnesviz.pan');
+                if (str) {
+                    const parsed = JSON.parse(str);
+                    if (parsed && typeof parsed.x === 'number' && typeof parsed.y === 'number') {
+                        return parsed;
+                    }
+                }
+                return { x: 0, y: 0 }; // Default pan
+            } catch (e) {
+                console.warn("Could not read arnesviz.pan from localStorage:", e);
+                return { x: 0, y: 0 };
+            }
+        })();
+
         let state = {
             project: null,
             selectedEntity: null,
             sidebarState: 'closed', // 'closed', 'details', 'config'
-            activeView: 'visual', // 'table' or 'visual'
-            editMode: false,
-            isDirty: false
+            // Updated initial activeView
+            activeView: savedActiveView,
+            editMode: savedEditMode,
+            isDirty: false,
+            // Added new state properties
+            sidebarLastEntity: null,
+            filters: { text: '', type: 'all', net: 'all', section: 'all' },
+            logs: [{ level: 'info', message: 'Application started', timestamp: new Date().toISOString() }],
+            // Added for visual engine
+            zoom: savedZoom,
+            pan: savedPan
         };
 
         const subscribers = [];
@@ -305,8 +501,68 @@
         }
 
         function updateState(newState) {
-            state = { ...state, ...newState };
-            subscribers.forEach(callback => callback(state));
+            if (_isUpdatingState) return; // Prevent recursion
+            _isUpdatingState = true;
+            try {
+                const oldState = state;
+                state = { ...state, ...newState };
+
+                // Persist specific state changes to localStorage
+                if ('activeView' in newState) {
+                    try {
+                        localStorage.setItem('arnesviz.activeView', state.activeView);
+                    } catch (e) {
+                        console.warn("Could not write arnesviz.activeView to localStorage:", e);
+                        // Log warning directly to state to avoid recursion
+                        state.logs = [...state.logs, { level: 'warning', message: `localStorage full: activeView`, timestamp: new Date().toISOString() }];
+                    }
+                }
+                if ('editMode' in newState) {
+                    try {
+                        localStorage.setItem('arnesviz.editMode', JSON.stringify(state.editMode));
+                    } catch (e) {
+                        console.warn("Could not write arnesviz.editMode to localStorage:", e);
+                        // Log warning directly to state to avoid recursion
+                        state.logs = [...state.logs, { level: 'warning', message: `localStorage full: editMode`, timestamp: new Date().toISOString() }];
+                    }
+                }
+                if ('filters' in newState) {
+                     try {
+                         localStorage.setItem('arnesviz.filters', JSON.stringify(state.filters));
+                     } catch (e) {
+                         console.warn("Could not write arnesviz.filters to localStorage:", e);
+                         // Log warning directly to state to avoid recursion
+                         state.logs = [...state.logs, { level: 'warning', message: `localStorage full: filters`, timestamp: new Date().toISOString() }];
+                     }
+                 }
+                 if ('zoom' in newState) {
+                     try {
+                         localStorage.setItem('arnesviz.zoom', state.zoom.toString());
+                     } catch (e) {
+                         console.warn("Could not write arnesviz.zoom to localStorage:", e);
+                         state.logs = [...state.logs, { level: 'warning', message: `localStorage full: zoom`, timestamp: new Date().toISOString() }];
+                     }
+                 }
+                 if ('pan' in newState) {
+                     try {
+                         localStorage.setItem('arnesviz.pan', JSON.stringify(state.pan));
+                     } catch (e) {
+                         console.warn("Could not write arnesviz.pan to localStorage:", e);
+                         state.logs = [...state.logs, { level: 'warning', message: `localStorage full: pan`, timestamp: new Date().toISOString() }];
+                     }
+                 }
+
+                subscribers.forEach(callback => callback(state, oldState));
+            } finally {
+                _isUpdatingState = false; // Reset flag
+            }
+        }
+
+        // --- Mark Dirty Function ---
+        function markDirty() {
+            if (!state.isDirty) {
+                updateState({ isDirty: true });
+            }
         }
 
         // --- DOM Elements ---
@@ -317,9 +573,31 @@
         const $sidebar = document.getElementById('sidebar');
         const $btnCloseSidebar = document.getElementById('btn-close-sidebar');
         const $svgContainer = document.getElementById('svg-container');
+        const $svgCanvas = document.getElementById('svg-canvas');
+        const $svgViewport = document.getElementById('viewport');
         const $tableContainer = document.getElementById('table-container');
         const $btnCollapseLog = document.getElementById('btn-collapse-log');
         const $logPanel = document.getElementById('log-panel');
+        const $logContent = document.getElementById('log-content');
+        const $btnClearLog = document.getElementById('btn-clear-log');
+        const $filterSearch = document.getElementById('filter-search'); // New element
+        const $welcomeScreen = document.getElementById('welcome-screen');
+        const $btnImportWelcome = document.getElementById('btn-import-welcome');
+        const $btnCreateWelcome = document.getElementById('btn-create-welcome');
+        const $configButtons = document.getElementById('config-buttons');
+        const $btnImportConfig = document.getElementById('btn-import-config');
+        const $btnExportConfig = document.getElementById('btn-export-config');
+        const $fileInput = document.getElementById('file-input');
+        const $modalOverlay = document.getElementById('modal-overlay');
+        const $modalTitle = document.getElementById('modal-title');
+        const $modalMessage = document.getElementById('modal-message');
+        const $modalBtnOk = document.getElementById('modal-btn-ok');
+        const $modalBtnCancel = document.getElementById('modal-btn-cancel');
+        const $modalBtnExport = document.getElementById('modal-btn-export');
+        const $modalBtnDiscard = document.getElementById('modal-btn-discard');
+        const $modalBtnRestore = document.getElementById('modal-btn-restore');
+        const $modalBtnDiscardAutosave = document.getElementById('modal-btn-discard-autosave');
+
 
         // --- Initial State Sync to UI ---
         function syncStateToUI(state) {
@@ -336,6 +614,8 @@
 
             // Update Sidebar
             $sidebar.classList.toggle('open', state.sidebarState !== 'closed');
+            // Show config buttons if sidebar state is config
+            $configButtons.style.display = state.sidebarState === 'config' ? 'block' : 'none';
             // Update file name if project exists
             if (state.project && state.project.metadata && state.project.metadata.projectInfo && state.project.metadata.projectInfo.name) {
                  $fileName.textContent = `- ${state.project.metadata.projectInfo.name} -`;
@@ -344,10 +624,1359 @@
              }
         }
 
+        // --- Log Panel Renderer ---
+        function renderLogs(logs) {
+            $logContent.innerHTML = ''; // Clear existing content
+            logs.forEach(entry => {
+                const logDiv = document.createElement('div');
+                logDiv.className = `log-entry ${entry.level}`;
+                // Format time from ISO string
+                const timeStr = new Date(entry.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                logDiv.textContent = `[${timeStr}] ${entry.message}`;
+                $logContent.appendChild(logDiv);
+            });
+            // Scroll to bottom after updating
+            $logContent.scrollTop = $logContent.scrollHeight;
+        }
+
+        // --- Calculate Absolute Position ---
+        function getAbsolutePosition(entityId, entityMap, containerMap) {
+            const entity = entityMap[entityId];
+            if (!entity) return { x: 0, y: 0 };
+
+            let absX = 0;
+            let absY = 0;
+
+            if (entity.type === 'system') { // Root container
+                absX = entity.position.x || 0;
+                absY = entity.position.y || 0;
+            } else { // Non-root container or connector
+                let absX = 0;
+                let absY = 0;
+
+                // Si es container, agregar su propio offset primero
+                if (entity.position && (entity.position.offsetX !== undefined || entity.position.offsetY !== undefined)) {
+                    absX = entity.position.offsetX || 0;
+                    absY = entity.position.offsetY || 0;
+                }
+
+                // Sumar offsets de todos los ancestros
+                let currentId = entity.parent_id;
+                let currentContainer = containerMap[currentId];
+
+                while (currentContainer) {
+                    if (currentContainer.parent_id === null) {
+                        // Root container tiene position.x/y, no offsetX/offsetY
+                        absX += currentContainer.position.x || 0;
+                        absY += currentContainer.position.y || 0;
+                    } else {
+                        absX += currentContainer.position.offsetX || 0;
+                        absY += currentContainer.position.offsetY || 0;
+                    }
+                    currentId = currentContainer.parent_id;
+                    currentContainer = containerMap[currentId];
+                }
+
+                return { x: absX, y: absY };
+            }
+
+            return { x: absX, y: absY };
+        }
+
+        // --- Calculate Absolute Position for Connectors ---
+        function getAbsolutePositionForConnector(connId, entityMap, containerMap) {
+            const conn = entityMap[connId];
+            if (!conn) {
+                console.warn(`getAbsolutePositionForConnector: Connector ${connId} not found in entityMap`);
+                return { x: 0, y: 0 };
+            }
+
+            const parentContainer = containerMap[conn.parent_id];
+            if (!parentContainer) {
+                console.warn(`getAbsolutePositionForConnector: Parent container ${conn.parent_id} not found for connector ${connId}`);
+                return { x: 0, y: 0 };
+            }
+
+            const parentAbsPos = getAbsolutePosition(parentContainer.id, entityMap, containerMap);
+
+            if (conn.mountType === 'fixed') {
+                 let x = parentAbsPos.x;
+                 let y = parentAbsPos.y;
+
+                 const edgeSide = conn.edgeSide;
+                 const offset = conn.offset || 0;
+                 const width = conn.size.width || 0;
+                 const height = conn.size.height || 0;
+
+                 switch (edgeSide) {
+                     case 'left':
+                         x = parentAbsPos.x;
+                         y = parentAbsPos.y + offset;
+                         break;
+                     case 'right':
+                         x = parentAbsPos.x + (parentContainer.size.width || 0) - width;
+                         y = parentAbsPos.y + offset;
+                         break;
+                     case 'top':
+                         x = parentAbsPos.x + offset;
+                         y = parentAbsPos.y;
+                         break;
+                     case 'bottom':
+                         x = parentAbsPos.x + offset;
+                         y = parentAbsPos.y + (parentContainer.size.height || 0) - height;
+                         break;
+                 }
+                 return { x, y };
+            } else { // flying
+                 if (!conn.matedId) {
+                     console.log(`getAbsolutePositionForConnector: Flying connector ${connId} has no matedId, skipping`);
+                     return { x: 0, y: 0 };
+                 }
+
+                 // Buscar el mate en project.data.mates (no en entityMap)
+                 const mate = state.project.data.mates.find(m => m.id === conn.matedId);
+                 if (!mate) {
+                     console.warn(`getAbsolutePositionForConnector: Mate ${conn.matedId} not found for flying connector ${connId}`);
+                     return { x: 0, y: 0 };
+                 }
+
+                 const partnerId = mate.from?.connector === connId ? mate.to?.connector : mate.from?.connector;
+                 if (!partnerId) {
+                     console.warn(`getAbsolutePositionForConnector: Partner not found in mate ${mate.id}`);
+                     return { x: 0, y: 0 };
+                 }
+
+                 const partnerConn = entityMap[partnerId];
+                 if (!partnerConn) {
+                     console.warn(`getAbsolutePositionForConnector: Partner connector ${partnerId} not found`);
+                     return { x: 0, y: 0 };
+                 }
+
+                 const partnerAbsPos = getAbsolutePositionForConnector(partnerId, entityMap, containerMap);
+
+                 // Calculate position to face the partner, aligned by pin 1
+                 let x = partnerAbsPos.x;
+                 let y = partnerAbsPos.y;
+
+                 const partnerEdge = partnerConn.edgeSide;
+                 const width = conn.size.width || 0;
+                 const height = conn.size.height || 0;
+
+                 switch (partnerEdge) {
+                     case 'left':
+                         x = partnerAbsPos.x + (partnerConn.size.width || 0); // Place to the right of partner
+                         y = partnerAbsPos.y; // Align vertically
+                         break;
+                     case 'right':
+                         x = partnerAbsPos.x - width; // Place to the left of partner
+                         y = partnerAbsPos.y; // Align vertically
+                         break;
+                     case 'top':
+                         x = partnerAbsPos.x; // Align horizontally
+                         y = partnerAbsPos.y + (partnerConn.size.height || 0); // Place below partner
+                         break;
+                     case 'bottom':
+                         x = partnerAbsPos.x; // Align horizontally
+                         y = partnerAbsPos.y - height; // Place above partner
+                         break;
+                 }
+                 // Adjust for connector size to ensure edges touch
+                 if (partnerEdge === 'left' || partnerEdge === 'right') {
+                     y = partnerAbsPos.y + (partnerConn.size.height - height) / 2;
+                 } else { // top or bottom
+                     x = partnerAbsPos.x + (partnerConn.size.width - width) / 2;
+                 }
+
+                 return { x, y };
+            }
+        }
+
+
+        // --- RENDER FUNCTIONS ---
+        function renderContainers(project) {
+            const containers = project.data.containers || [];
+            const entityMap = {};
+            const containerMap = {};
+
+            // Build maps
+            containers.forEach(c => {
+                entityMap[c.id] = c;
+                containerMap[c.id] = c;
+            });
+
+            $svgViewport.innerHTML = ''; // Clear viewport
+
+            // Recursive function to render container and its children
+            function renderContainerRecursive(containerId, parentGroup) {
+                const container = containerMap[containerId];
+                if (!container) return;
+
+                const absPos = getAbsolutePosition(container.id, entityMap, containerMap);
+
+                const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+                g.setAttribute('id', `g-${container.id}`);
+
+                const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+                rect.setAttribute('x', absPos.x);
+                rect.setAttribute('y', absPos.y);
+                rect.setAttribute('width', container.size.width);
+                rect.setAttribute('height', container.size.height);
+                rect.setAttribute('rx', '10'); // Rounded corners
+                rect.setAttribute('ry', '10');
+                rect.setAttribute('fill', 'rgba(60, 60, 80, 0.2)');
+                rect.setAttribute('stroke', '#6b7280');
+                rect.setAttribute('stroke-width', '1');
+                rect.setAttribute('class', 'svg-element');
+                rect.setAttribute('data-type', 'container');
+                rect.setAttribute('data-id', container.id);
+
+                const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                text.setAttribute('x', absPos.x + 10);
+                text.setAttribute('y', absPos.y + 25);
+                text.setAttribute('fill', 'white');
+                text.setAttribute('font-size', '16');
+                text.setAttribute('font-family', 'Arial, sans-serif');
+                text.textContent = container.name || container.id;
+
+                g.appendChild(rect);
+                g.appendChild(text);
+
+                // Recursively add child containers
+                containers.forEach(child => {
+                    if (child.parent_id === container.id) {
+                        renderContainerRecursive(child.id, g);
+                    }
+                });
+
+                parentGroup.appendChild(g);
+            }
+
+            // Find root containers (parent_id is null)
+            containers.forEach(container => {
+                if (container.parent_id === null) {
+                    renderContainerRecursive(container.id, $svgViewport);
+                }
+            });
+        }
+
+        function renderConnectors(project) {
+            const connectors = project.data.connectors || [];
+            const entityMap = {};
+            const containerMap = {};
+
+            // Build maps
+            project.data.containers.forEach(c => {
+                entityMap[c.id] = c;
+                containerMap[c.id] = c;
+            });
+            connectors.forEach(c => {
+                entityMap[c.id] = c;
+            });
+
+            // Create a group for connectors
+            let connectorGroup = $svgViewport.querySelector('#connectors-group');
+            if (!connectorGroup) {
+                connectorGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+                connectorGroup.setAttribute('id', 'connectors-group');
+                $svgViewport.appendChild(connectorGroup);
+            } else {
+                connectorGroup.innerHTML = '';
+            }
+
+            connectors.forEach(conn => {
+                if (conn.mountType === 'flying' && (!conn.matedId || !project.data.mates.some(m => m.id === conn.matedId))) {
+                    // Skip rendering flying connectors without valid partners
+                    console.log(`[renderConnectors] Skipping flying connector ${conn.id} without valid partner.`);
+                    return;
+                }
+
+                const absPos = getAbsolutePositionForConnector(conn.id, entityMap, containerMap);
+
+                const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+                g.setAttribute('id', `g-${conn.id}`);
+
+                const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+                rect.setAttribute('x', absPos.x);
+                rect.setAttribute('y', absPos.y);
+                rect.setAttribute('width', conn.size.width);
+                rect.setAttribute('height', conn.size.height);
+                rect.setAttribute('fill', conn.gender === 'male' ? 'rgba(100, 100, 120, 0.4)' : 'rgba(80, 80, 100, 0.4)');
+                rect.setAttribute('stroke', '#9ca3af');
+                rect.setAttribute('stroke-width', '1');
+                rect.setAttribute('class', 'svg-element');
+                rect.setAttribute('data-type', 'connector');
+                rect.setAttribute('data-id', conn.id);
+
+                g.appendChild(rect);
+
+                // Draw pins
+                const pins = conn.pins || 0;
+                const spacing = conn.edgeSide === 'left' || conn.edgeSide === 'right' ?
+                    conn.size.height / (pins + 1) :
+                    conn.size.width / (pins + 1);
+
+                for (let i = 1; i <= pins; i++) {
+                    const pinCenterX = conn.edgeSide === 'left' || conn.edgeSide === 'right' ?
+                        absPos.x + (conn.edgeSide === 'left' ? -5 : conn.size.width + 5) :
+                        absPos.x + (spacing * i);
+                    const pinCenterY = conn.edgeSide === 'top' || conn.edgeSide === 'bottom' ?
+                        absPos.y + (conn.edgeSide === 'top' ? -5 : conn.size.height + 5) :
+                        absPos.y + (spacing * i);
+
+                    const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                    circle.setAttribute('cx', pinCenterX);
+                    circle.setAttribute('cy', pinCenterY);
+                    circle.setAttribute('r', '5');
+                    circle.setAttribute('fill', '#d1d5db');
+                    circle.setAttribute('stroke', '#9ca3af');
+                    circle.setAttribute('stroke-width', '1');
+                    circle.setAttribute('class', 'svg-pin');
+                    circle.setAttribute('data-connector-id', conn.id);
+                    circle.setAttribute('data-pin', i);
+
+                    g.appendChild(circle);
+                }
+
+                connectorGroup.appendChild(g);
+            });
+        }
+
+        function renderWires(project) {
+            const wires = project.data.wires || [];
+            const connectors = project.data.connectors || [];
+            const entityMap = {};
+            const containerMap = {};
+
+            // Build maps
+            project.data.containers.forEach(c => {
+                entityMap[c.id] = c;
+                containerMap[c.id] = c;
+            });
+            connectors.forEach(c => {
+                entityMap[c.id] = c;
+            });
+            wires.forEach(w => {
+                entityMap[w.id] = w;
+            });
+
+            // Create a group for wires
+            let wireGroup = $svgViewport.querySelector('#wires-group');
+            if (!wireGroup) {
+                wireGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+                wireGroup.setAttribute('id', 'wires-group');
+                $svgViewport.appendChild(wireGroup);
+            } else {
+                wireGroup.innerHTML = '';
+            }
+
+            wires.forEach(wire => {
+                console.log(`[renderWires] Processing wire ${wire.id}: from=${wire.from?.connector}.${wire.from?.pin} to=${wire.to?.connector}.${wire.to?.pin}`);
+
+                const fromConn = connectors.find(c => c.id === wire.from?.connector);
+                const toConn = connectors.find(c => c.id === wire.to?.connector);
+
+                if (!fromConn) {
+                    console.warn(`[renderWires] Wire ${wire.id}: from connector ${wire.from?.connector} not found, skipping`);
+                    return; // Skip rendering this wire
+                }
+                if (!toConn) {
+                    console.warn(`[renderWires] Wire ${wire.id}: to connector ${wire.to?.connector} not found, skipping`);
+                    return; // Skip rendering this wire
+                }
+
+                console.log(`[renderWires] Wire ${wire.id}: fromConn=${fromConn.id} (mountType=${fromConn.mountType}, matedId=${fromConn.matedId}), toConn=${toConn.id} (mountType=${toConn.mountType}, matedId=${toConn.matedId})`);
+
+                // Check for valid ends (skip if either connector is flying without partner)
+                if (
+                    (fromConn.mountType === 'flying' && (!fromConn.matedId || !project.data.mates.some(m => m.id === fromConn.matedId))) ||
+                    (toConn.mountType === 'flying' && (!toConn.matedId || !project.data.mates.some(m => m.id === toConn.matedId)))
+                ) {
+                    console.warn(`[renderWires] Wire ${wire.id}: Skipping because flying connector has invalid/missing matedId`);
+                    return; // Skip rendering this wire
+                }
+
+                const fromPos = getAbsolutePositionForConnector(wire.from?.connector, entityMap, containerMap);
+                const toPos = getAbsolutePositionForConnector(wire.to?.connector, entityMap, containerMap);
+
+                console.log(`[renderWires] Wire ${wire.id}: fromPos=(${fromPos.x}, ${fromPos.y}), toPos=(${toPos.x}, ${toPos.y})`);
+
+                if (!fromPos || !toPos || (fromPos.x === 0 && fromPos.y === 0) || (toPos.x === 0 && toPos.y === 0)) {
+                    console.warn(`[renderWires] Wire ${wire.id}: Skipping because position is invalid (0,0)`);
+                    return; // Skip rendering this wire
+                }
+
+                const fromPinIndex = wire.from?.pin || 1;
+                const toPinIndex = wire.to?.pin || 1;
+
+                // Calculate pin positions based on connector size and edgeSide
+                const fromPinSpacing = fromConn.edgeSide === 'left' || fromConn.edgeSide === 'right' ?
+                    fromConn.size.height / (fromConn.pins + 1) :
+                    fromConn.size.width / (fromConn.pins + 1);
+                const toPinSpacing = toConn.edgeSide === 'left' || toConn.edgeSide === 'right' ?
+                    toConn.size.height / (toConn.pins + 1) :
+                    toConn.size.width / (toConn.pins + 1);
+
+                let fromPinX = fromPos.x, fromPinY = fromPos.y;
+                let toPinX = toPos.x, toPinY = toPos.y;
+
+                if (fromConn.edgeSide === 'left' || fromConn.edgeSide === 'right') {
+                    fromPinX = fromPos.x + (fromConn.edgeSide === 'left' ? -5 : fromConn.size.width + 5);
+                    fromPinY = fromPos.y + (fromPinSpacing * fromPinIndex);
+                } else { // top or bottom
+                    fromPinX = fromPos.x + (fromPinSpacing * fromPinIndex);
+                    fromPinY = fromPos.y + (fromConn.edgeSide === 'top' ? -5 : fromConn.size.height + 5);
+                }
+
+                if (toConn.edgeSide === 'left' || toConn.edgeSide === 'right') {
+                    toPinX = toPos.x + (toConn.edgeSide === 'left' ? -5 : toConn.size.width + 5);
+                    toPinY = toPos.y + (toPinSpacing * toPinIndex);
+                } else { // top or bottom
+                    toPinX = toPos.x + (toPinSpacing * toPinIndex);
+                    toPinY = toPos.y + (toConn.edgeSide === 'top' ? -5 : toConn.size.height + 5);
+                }
+
+                const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                // Calculate control points for Bézier curve
+                const cx = Math.max(50, Math.abs(toPinX - fromPinX) * 0.4);
+                const pathData = `M ${fromPinX},${fromPinY} C ${fromPinX + cx},${fromPinY} ${toPinX - cx},${toPinY} ${toPinX},${toPinY}`;
+
+                path.setAttribute('d', pathData);
+                path.setAttribute('fill', 'none');
+
+                // Resolve color from catalog
+                const colorPalette = project.metadata.catalogs.colorPalette || {};
+                const colorKey = wire.color || 'gray'; // Default to gray if no color specified
+                const resolvedColor = colorPalette[colorKey] || '#6b7280'; // Fallback to gray if not in palette
+                path.setAttribute('stroke', resolvedColor);
+
+                const thickness = wire.thickness || 2;
+                path.setAttribute('stroke-width', thickness.toString());
+                path.setAttribute('class', 'svg-element');
+                path.setAttribute('data-type', 'wire');
+                path.setAttribute('data-id', wire.id);
+
+                wireGroup.appendChild(path);
+
+                console.log(`[renderWires] Wire ${wire.id}: RENDERED successfully`);
+            });
+        }
+
+        function renderMates(project) {
+            // Mates are visualized implicitly by the positioning of connectors.
+            // No additional rendering needed here beyond ensuring connectors are positioned correctly.
+            // The logic for connector positioning already handles the "facing" aspect of mates.
+        }
+
+        function renderSVG() {
+            if (!state.project) return;
+            renderContainers(state.project);
+            renderConnectors(state.project);
+            renderWires(state.project);
+            renderMates(state.project);
+            applySelectionHighlight();
+            // NO llamar applyTransform() aquí
+        }
+
+        // --- SELECTION ---
+        function selectEntity(type, id) {
+            updateState({ selectedEntity: { type, id } });
+            updateState({ sidebarState: 'details' });
+        }
+
+        function deselectEntity() {
+            updateState({ selectedEntity: null });
+        }
+
+        function applySelectionHighlight() {
+            // Remove highlight from all elements
+            document.querySelectorAll('.svg-element').forEach(el => {
+                el.classList.remove('selection-glow');
+                if (el.tagName === 'rect' || el.tagName === 'path') {
+                    el.setAttribute('stroke', el.getAttribute('original-stroke') || el.getAttribute('stroke'));
+                    el.setAttribute('stroke-width', el.getAttribute('original-stroke-width') || el.getAttribute('stroke-width'));
+                }
+            });
+
+            // Apply highlight to selected element if exists
+            if (state.selectedEntity) {
+                const { type, id } = state.selectedEntity;
+                const element = document.querySelector(`.svg-element[data-type="${type}"][data-id="${id}"]`);
+                if (element) {
+                    element.classList.add('selection-glow');
+                    // Store original attributes before changing them
+                    if (element.tagName === 'rect' || element.tagName === 'path') {
+                        element.setAttribute('original-stroke', element.getAttribute('stroke'));
+                        element.setAttribute('original-stroke-width', element.getAttribute('stroke-width'));
+                        element.setAttribute('stroke', '#fbbf24'); // Accent secondary
+                        element.setAttribute('stroke-width', '3');
+                    }
+                }
+            }
+        }
+
+        // --- INTERACTION ---
+        let isDragging = false;
+        let dragStart = { x: 0, y: 0 };
+        let dragElement = null;
+        let dragElementType = '';
+        let dragOriginalData = null;
+        let isPanning = false;
+        let panStart = { x: 0, y: 0 };
+        let panStartState = { x: 0, y: 0 };
+
+        function handleMouseDown(e) {
+            if (!state.editMode) return;
+
+            const target = e.target;
+            if (target.classList.contains('svg-element')) {
+                isDragging = true;
+                dragElement = target;
+                dragElementType = target.getAttribute('data-type');
+                const id = target.getAttribute('data-id');
+
+                const svgRect = $svgCanvas.getBoundingClientRect();
+                dragStart = {
+                    x: e.clientX - svgRect.left,
+                    y: e.clientY - svgRect.top
+                };
+
+                if (dragElementType === 'container') {
+                    const container = state.project.data.containers.find(c => c.id === id);
+                    if (container) {
+                        dragOriginalData = {
+                            id: container.id,
+                            parent_id: container.parent_id,
+                            position: { ...container.position } // Clone position
+                        };
+                    }
+                } else if (dragElementType === 'connector') {
+                    const connector = state.project.data.connectors.find(c => c.id === id);
+                    if (connector && connector.mountType === 'fixed') { // Only allow dragging fixed connectors
+                        dragOriginalData = {
+                            id: connector.id,
+                            parent_id: connector.parent_id,
+                            edgeSide: connector.edgeSide,
+                            offset: connector.offset
+                        };
+                    } else {
+                        isDragging = false; // Reset if trying to drag a flying connector
+                    }
+                }
+
+                e.preventDefault(); // Prevent text selection
+            } else if (e.button === 1) { // Middle mouse button for pan
+                 isPanning = true;
+                 const svgRect = $svgCanvas.getBoundingClientRect();
+                 panStart = {
+                     x: e.clientX - svgRect.left,
+                     y: e.clientY - svgRect.top
+                 };
+                 panStartState = { ...state.pan };
+                 e.preventDefault();
+             }
+        }
+
+        function handleMouseMove(e) {
+            if (!isDragging && !isPanning) return;
+
+            const svgRect = $svgCanvas.getBoundingClientRect();
+            const currentPos = {
+                x: e.clientX - svgRect.left,
+                y: e.clientY - svgRect.top
+            };
+
+            if (isPanning) {
+                const deltaX = currentPos.x - panStart.x;
+                const deltaY = currentPos.y - panStart.y;
+
+                updateState({
+                    pan: {
+                        x: panStartState.x + deltaX,
+                        y: panStartState.y + deltaY
+                    }
+                });
+
+                panStart = { x: currentPos.x, y: currentPos.y };
+                panStartState = { ...state.pan };
+                return;
+            }
+
+            if (isDragging && dragElement && state.project && state.editMode) {
+                const deltaX = (currentPos.x - dragStart.x) / state.zoom;
+                const deltaY = (currentPos.y - dragStart.y) / state.zoom;
+
+                dragStart = { x: currentPos.x, y: currentPos.y };
+
+                if (dragElementType === 'container') {
+                    const updatedProject = structuredClone(state.project);
+                    const containerToUpdate = updatedProject.data.containers.find(c => c.id === dragOriginalData.id);
+
+                    if (containerToUpdate) {
+                        if (containerToUpdate.parent_id === null) {
+                            containerToUpdate.position.x += deltaX;
+                            containerToUpdate.position.y += deltaY;
+                        } else {
+                            containerToUpdate.position.offsetX += deltaX;
+                            containerToUpdate.position.offsetY += deltaY;
+                        }
+                    }
+
+                    updateState({ project: updatedProject });
+                    markDirty();
+
+                } else if (dragElementType === 'connector' && dragOriginalData) {
+                    const container = state.project.data.containers.find(c => c.id === dragOriginalData.parent_id);
+                    if (!container) return;
+
+                    const svgX = (currentPos.x - state.pan.x) / state.zoom;
+                    const svgY = (currentPos.y - state.pan.y) / state.zoom;
+
+                    const entityMap = {};
+                    const containerMap = {};
+                    state.project.data.containers.forEach(c => {
+                        entityMap[c.id] = c;
+                        containerMap[c.id] = c;
+                    });
+                    const absPos = getAbsolutePosition(container.id, entityMap, containerMap);
+
+                    const relX = svgX - absPos.x;
+                    const relY = svgY - absPos.y;
+
+                    let newEdgeSide = dragOriginalData.edgeSide;
+                    let newOffset = dragOriginalData.offset;
+
+                    const threshold = 30;
+                    const connectorInState = state.project.data.connectors.find(c => c.id === dragOriginalData.id);
+                    const connWidth = connectorInState?.size?.width || 180;
+                    const connHeight = connectorInState?.size?.height || 115;
+
+                    if (relX < threshold && relY > threshold && relY < (container.size.height - threshold)) {
+                        newEdgeSide = 'left';
+                        newOffset = Math.max(0, Math.min(container.size.height - connHeight, relY - connHeight / 2));
+                    } else if (relX > (container.size.width - threshold) && relY > threshold && relY < (container.size.height - threshold)) {
+                        newEdgeSide = 'right';
+                        newOffset = Math.max(0, Math.min(container.size.height - connHeight, relY - connHeight / 2));
+                    } else if (relY < threshold && relX > threshold && relX < (container.size.width - threshold)) {
+                        newEdgeSide = 'top';
+                        newOffset = Math.max(0, Math.min(container.size.width - connWidth, relX - connWidth / 2));
+                    } else if (relY > (container.size.height - threshold) && relX > threshold && relX < (container.size.width - threshold)) {
+                        newEdgeSide = 'bottom';
+                        newOffset = Math.max(0, Math.min(container.size.width - connWidth, relX - connWidth / 2));
+                    } else {
+                        switch (dragOriginalData.edgeSide) {
+                            case 'left':
+                            case 'right':
+                                newOffset = Math.max(0, Math.min(container.size.height - connHeight, relY - connHeight / 2));
+                                break;
+                            case 'top':
+                            case 'bottom':
+                                newOffset = Math.max(0, Math.min(container.size.width - connWidth, relX - connWidth / 2));
+                                break;
+                        }
+                    }
+
+                    const updatedProject = structuredClone(state.project);
+                    const connectorToUpdate = updatedProject.data.connectors.find(c => c.id === dragOriginalData.id);
+                    if (connectorToUpdate) {
+                        connectorToUpdate.edgeSide = newEdgeSide;
+                        connectorToUpdate.offset = newOffset;
+                    }
+                    updateState({ project: updatedProject });
+                    markDirty();
+                }
+            }
+        }
+
+        function handleMouseUp(e) {
+            if (isDragging) {
+                isDragging = false;
+                dragElement = null;
+                dragOriginalData = null;
+            }
+            if (isPanning) {
+                isPanning = false;
+            }
+        }
+
+        function handleClick(e) {
+            if (e.target.classList.contains('svg-element')) {
+                const type = e.target.getAttribute('data-type');
+                const id = e.target.getAttribute('data-id');
+                selectEntity(type, id);
+            } else if (e.target.id === 'svg-canvas' || e.target.id === 'viewport') {
+                // Clicked on background
+                deselectEntity();
+            }
+        }
+
+        function handleWheel(e) {
+            e.preventDefault();
+            const delta = e.deltaY > 0 ? -0.1 : 0.1; // Sensitivity
+            const newZoom = Math.max(0.2, Math.min(3.0, state.zoom + delta));
+
+            // Get mouse position relative to SVG
+            const rect = $svgCanvas.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
+
+            // Calculate how much the pan needs to change to keep the mouse position fixed
+            const zoomFactor = newZoom / state.zoom;
+            const newPanX = state.pan.x + (mouseX * (1 - zoomFactor));
+            const newPanY = state.pan.y + (mouseY * (1 - zoomFactor));
+
+            updateState({
+                zoom: newZoom,
+                pan: { x: newPanX, y: newPanY }
+            });
+            applyTransform();
+        }
+
+        function applyTransform() {
+            const transform = `translate(${state.pan.x}px, ${state.pan.y}px) scale(${state.zoom})`;
+            $svgViewport.style.transform = transform;
+            $svgViewport.style.transformOrigin = '0 0';
+        }
+
+        // --- Keyboard Shortcuts ---
+        function handleKeyDown(e) {
+            if (e.key === 'Escape') {
+                deselectEntity();
+            }
+        }
+
+        // --- Event Listeners ---
+        $svgCanvas.addEventListener('mousedown', handleMouseDown);
+        $svgCanvas.addEventListener('mousemove', handleMouseMove);
+        $svgCanvas.addEventListener('mouseup', handleMouseUp);
+        $svgCanvas.addEventListener('mouseleave', handleMouseUp); // Release drag if mouse leaves
+        $svgCanvas.addEventListener('click', handleClick);
+        $svgCanvas.addEventListener('wheel', handleWheel, { passive: false }); // Passive false for preventDefault
+        document.addEventListener('keydown', handleKeyDown);
+
+
         // Subscribe UI updates to state changes
-        subscribe(syncStateToUI);
+        subscribe((newState, oldState) => {
+            syncStateToUI(newState);
+            if (newState.logs !== oldState.logs) {
+                renderLogs(newState.logs);
+            }
+
+            if (newState.project !== oldState.project ||
+                newState.activeView !== oldState.activeView ||
+                newState.selectedEntity !== oldState.selectedEntity) {
+                if (newState.activeView === 'visual') {
+                    renderSVG();
+                }
+            }
+
+            if (newState.zoom !== oldState.zoom || newState.pan !== oldState.pan) {
+                applyTransform();
+            }
+        });
+
+        // --- MODAL Functions ---
+        function showModal(title, message, buttons = ['ok']) {
+            $modalTitle.textContent = title;
+            $modalMessage.textContent = message;
+
+            // Hide all buttons first
+            $modalBtnOk.style.display = 'none';
+            $modalBtnCancel.style.display = 'none';
+            $modalBtnExport.style.display = 'none';
+            $modalBtnDiscard.style.display = 'none';
+            $modalBtnRestore.style.display = 'none';
+            $modalBtnDiscardAutosave.style.display = 'none';
+
+            // Show requested buttons
+            buttons.forEach(btn => {
+                switch(btn) {
+                    case 'ok': $modalBtnOk.style.display = 'inline-block'; break;
+                    case 'cancel': $modalBtnCancel.style.display = 'inline-block'; break;
+                    case 'export': $modalBtnExport.style.display = 'inline-block'; break;
+                    case 'discard': $modalBtnDiscard.style.display = 'inline-block'; break;
+                    case 'restore': $modalBtnRestore.style.display = 'inline-block'; break;
+                    case 'discard_autosave': $modalBtnDiscardAutosave.style.display = 'inline-block'; break;
+                }
+            });
+
+            $modalOverlay.style.display = 'flex';
+        }
+
+        function hideModal() {
+            $modalOverlay.style.display = 'none';
+        }
+
+        // --- Validate Incompatible Fields ---
+        function hasIncompatibleFields(projectJson) {
+            const errors = [];
+            // Check metadata.uiSettings
+            if (projectJson.metadata && projectJson.metadata.uiSettings) {
+                errors.push("metadata.uiSettings");
+            }
+            // Check data.nets
+            if (projectJson.data && projectJson.data.nets && projectJson.data.nets.length > 0) {
+                errors.push("data.nets");
+            }
+            // Check metadata.revision
+            if (projectJson.metadata && projectJson.metadata.revision !== undefined) {
+                errors.push("metadata.revision");
+            }
+            // Iterate through data arrays to check for obsolete fields
+            ['connectors', 'wires', 'mates'].forEach(type => {
+                if (projectJson.data && projectJson.data[type]) {
+                    projectJson.data[type].forEach(entity => {
+                        if (entity.signalTypeRef) errors.push(`signalTypeRef in ${type}`);
+                        if (type === 'connectors' && entity.sectionRef) errors.push(`sectionRef in connectors`);
+                        // Check nets for shield field
+                        if (type === 'nets' && entity.shield !== undefined) errors.push(`shield in signalType of nets`);
+                    });
+                }
+            });
+
+            return errors;
+        }
+
+        // --- VALIDATION FUNCTION ---
+        function validateProject(project) {
+            if (!project || !project.metadata || !project.data) {
+                return [{ level: 'error', message: 'Project structure is invalid (missing metadata or data)', entityId: null, timestamp: new Date().toISOString() }];
+            }
+            const logs = [];
+            const schema = project.metadata.schema || {};
+            const catalogs = project.metadata.catalogs || {};
+
+            // Helper to get catalog IDs
+            const getCatalogIds = (catalogName) => Object.keys(catalogs[catalogName] || {});
+
+            // --- Schema Validation ---
+            ['containers', 'connectors', 'wires', 'mates'].forEach(type => {
+                const entities = project.data[type] || [];
+                const typeSchema = schema[type] || {};
+                const required = typeSchema.required || [];
+                const recommended = typeSchema.recommended || [];
+
+                // Unique IDs check
+                const seenIds = new Set();
+                entities.forEach(entity => {
+                    if (seenIds.has(entity.id)) {
+                        logs.push({ level: 'error', message: `Duplicate ID '${entity.id}' found in ${type}`, entityId: entity.id, timestamp: new Date().toISOString() });
+                    }
+                    seenIds.add(entity.id);
+
+                    // Required fields check
+                    required.forEach(field => {
+                        if (entity[field] === undefined) {
+                            logs.push({ level: 'error', message: `Required field '${field}' is missing in ${type} ${entity.id}`, entityId: entity.id, timestamp: new Date().toISOString() });
+                        }
+                    });
+
+                    // Recommended fields check
+                    recommended.forEach(field => {
+                        if (entity[field] === undefined) {
+                            logs.push({ level: 'warning', message: `Recommended field '${field}' is missing in ${type} ${entity.id}`, entityId: entity.id, timestamp: new Date().toISOString() });
+                        }
+                    });
+
+                    // Pattern check for ID
+                    if (type === 'containers' && !/^T\d{3}$/.test(entity.id)) {
+                        logs.push({ level: 'error', message: `Invalid ID pattern for container ${entity.id}`, entityId: entity.id, timestamp: new Date().toISOString() });
+                    } else if (type === 'connectors' && !/^C\d{3}$/.test(entity.id)) {
+                        logs.push({ level: 'error', message: `Invalid ID pattern for connector ${entity.id}`, entityId: entity.id, timestamp: new Date().toISOString() });
+                    } else if (type === 'wires' && !/^W\d{3}$/.test(entity.id)) {
+                        logs.push({ level: 'error', message: `Invalid ID pattern for wire ${entity.id}`, entityId: entity.id, timestamp: new Date().toISOString() });
+                    } else if (type === 'mates' && !/^M\d{3}$/.test(entity.id)) {
+                        logs.push({ level: 'error', message: `Invalid ID pattern for mate ${entity.id}`, entityId: entity.id, timestamp: new Date().toISOString() });
+                    }
+                });
+            });
+
+            // --- Reference Validation (CORRECTED) ---
+            // Collect IDs from data arrays
+            const dataContainerIds = new Set((project.data.containers || []).map(c => c.id));
+            const dataConnectorIds = new Set((project.data.connectors || []).map(c => c.id));
+            // Collect IDs from catalogs
+            const catalogKeys = {
+                people: new Set(Object.keys(catalogs.people || {})),
+                sections: new Set(Object.keys(catalogs.sections || {})),
+                connectorModels: new Set(Object.keys(catalogs.connectorModels || {})),
+                wireTypes: new Set(Object.keys(catalogs.wireTypes || {})),
+                nets: new Set(Object.keys(catalogs.nets || {})),
+                colorPalette: new Set(Object.keys(catalogs.colorPalette || {}))
+            };
+
+            // Validate containers
+            project.data.containers.forEach(cont => {
+                if (cont.parent_id && cont.parent_id !== null && !dataContainerIds.has(cont.parent_id)) {
+                    logs.push({ level: 'error', message: `Container ${cont.id} has invalid parent_id`, entityId: cont.id, timestamp: new Date().toISOString() });
+                }
+                if (cont.sectionRef && !catalogKeys.sections.has(cont.sectionRef)) {
+                    logs.push({ level: 'error', message: `Container ${cont.id} has invalid sectionRef`, entityId: cont.id, timestamp: new Date().toISOString() });
+                }
+                if (cont.owner && !catalogKeys.people.has(cont.owner)) {
+                    logs.push({ level: 'error', message: `Container ${cont.id} has invalid owner`, entityId: cont.id, timestamp: new Date().toISOString() });
+                }
+            });
+
+            // Mate IDs set for validations
+            const mateIds = new Set((project.data.mates || []).map(m => m.id));
+
+            // Validate connectors
+            project.data.connectors.forEach(conn => {
+                if (conn.parent_id && !dataContainerIds.has(conn.parent_id)) {
+                    logs.push({ level: 'error', message: `Connector ${conn.id} has invalid parent_id`, entityId: conn.id, timestamp: new Date().toISOString() });
+                }
+                if (conn.modelRef && !catalogKeys.connectorModels.has(conn.modelRef)) {
+                    logs.push({ level: 'error', message: `Connector ${conn.id} has invalid modelRef`, entityId: conn.id, timestamp: new Date().toISOString() });
+                }
+                if (conn.owner && !catalogKeys.people.has(conn.owner)) {
+                    logs.push({ level: 'error', message: `Connector ${conn.id} has invalid owner`, entityId: conn.id, timestamp: new Date().toISOString() });
+                }
+                // FIX 4a: Flying with non-existent matedId
+                if (conn.mountType === 'flying' && conn.matedId && !mateIds.has(conn.matedId)) {
+                    logs.push({ level: 'error', message: `Flying connector ${conn.id} references non-existent matedId '${conn.matedId}'`, entityId: conn.id, timestamp: new Date().toISOString() });
+                }
+                // FIX 4b: Fixed without partner -> Info
+                if (conn.mountType === 'fixed' && !conn.matedId) {
+                    logs.push({ level: 'info', message: `Fixed connector ${conn.id} has no partner (may be intentional)`, entityId: conn.id, timestamp: new Date().toISOString() });
+                }
+            });
+
+            // Validate wires
+            project.data.wires.forEach(wire => {
+                if (wire.from?.connector && !dataConnectorIds.has(wire.from.connector)) {
+                    logs.push({ level: 'error', message: `Wire ${wire.id} has invalid from.connector`, entityId: wire.id, timestamp: new Date().toISOString() });
+                }
+                if (wire.to?.connector && !dataConnectorIds.has(wire.to.connector)) {
+                    logs.push({ level: 'error', message: `Wire ${wire.id} has invalid to.connector`, entityId: wire.id, timestamp: new Date().toISOString() });
+                }
+                if (wire.net && !catalogKeys.nets.has(wire.net)) {
+                    logs.push({ level: 'error', message: `Wire ${wire.id} has invalid net`, entityId: wire.id, timestamp: new Date().toISOString() });
+                }
+                if (wire.wireTypeRef && !catalogKeys.wireTypes.has(wire.wireTypeRef)) { // CORRECTION: Changed wireTypeRef to wire.wireTypeRef
+                    logs.push({ level: 'error', message: `Wire ${wire.id} has invalid wireTypeRef`, entityId: wire.id, timestamp: new Date().toISOString() });
+                }
+                if (wire.owner && !catalogKeys.people.has(wire.owner)) {
+                    logs.push({ level: 'error', message: `Wire ${wire.id} has invalid owner`, entityId: wire.id, timestamp: new Date().toISOString() });
+                }
+            });
+
+            // Validate mates
+            project.data.mates.forEach(mate => {
+                if (mate.from?.connector && !dataConnectorIds.has(mate.from.connector)) {
+                    logs.push({ level: 'error', message: `Mate ${mate.id} has invalid from.connector`, entityId: mate.id, timestamp: new Date().toISOString() });
+                }
+                if (mate.to?.connector && !dataConnectorIds.has(mate.to.connector)) {
+                    logs.push({ level: 'error', message: `Mate ${mate.id} has invalid to.connector`, entityId: mate.id, timestamp: new Date().toISOString() });
+                }
+                if (mate.net && !catalogKeys.nets.has(mate.net)) {
+                    logs.push({ level: 'error', message: `Mate ${mate.id} has invalid net`, entityId: mate.id, timestamp: new Date().toISOString() });
+                }
+                if (mate.owner && !catalogKeys.people.has(mate.owner)) {
+                    logs.push({ level: 'error', message: `Mate ${mate.id} has invalid owner`, entityId: mate.id, timestamp: new Date().toISOString() });
+                }
+            });
+
+            // --- Business Rules ---
+            project.data.mates.forEach(mate => {
+                const fromConn = project.data.connectors.find(c => c.id === mate.from.connector);
+                const toConn = project.data.connectors.find(c => c.id === mate.to.connector);
+
+                // 10.1: Opposite genders
+                if (fromConn && toConn && fromConn.gender === toConn.gender) {
+                    logs.push({ level: 'error', message: `Mate ${mate.id} connects connectors with same gender (${fromConn.gender})`, entityId: mate.id, timestamp: new Date().toISOString() });
+                }
+
+                // 10.2: Bidirectional matedId
+                if (fromConn && fromConn.matedId !== mate.id) {
+                    logs.push({ level: 'error', message: `Connector ${fromConn.id} matedId does not match mate ${mate.id}`, entityId: fromConn.id, timestamp: new Date().toISOString() });
+                }
+                if (toConn && toConn.matedId !== mate.id) {
+                    logs.push({ level: 'error', message: `Connector ${toConn.id} matedId does not match mate ${mate.id}`, entityId: toConn.id, timestamp: new Date().toISOString() });
+                }
+
+                // FIX 6: Inverse case - connector with matedId not in any M
+                const mateMap = new Map((project.data.mates || []).map(m => [m.id, m]));
+                project.data.connectors.forEach(conn => {
+                    if (conn.matedId) {
+                        const mate = mateMap.get(conn.matedId);
+                        if (!mate) {
+                            logs.push({ level: 'error', message: `Connector ${conn.id} references non-existent matedId '${conn.matedId}'`, entityId: conn.id, timestamp: new Date().toISOString() });
+                        } else if (mate.from?.connector !== conn.id && mate.to?.connector !== conn.id) {
+                            logs.push({ level: 'error', message: `Connector ${conn.id} has matedId '${conn.matedId}' but is not in that mate`, entityId: conn.id, timestamp: new Date().toISOString() });
+                        }
+                    }
+                });
+
+                // 10.4: Fixed + Flying
+                if ((fromConn && fromConn.mountType === 'fixed') && (toConn && toConn.mountType === 'flying')) {
+                    // Valid case
+                } else if ((fromConn && fromConn.mountType === 'flying') && (toConn && toConn.mountType === 'fixed')) {
+                    // Also valid case
+                } else {
+                    // Both fixed or both flying
+                    if ((fromConn && fromConn.mountType === 'fixed') && (toConn && toConn.mountType === 'fixed')) {
+                        logs.push({ level: 'error', message: `Mate ${mate.id} connects two fixed connectors`, entityId: mate.id, timestamp: new Date().toISOString() });
+                    }
+                    if ((fromConn && fromConn.mountType === 'flying') && (toConn && toConn.mountType === 'flying')) {
+                        logs.push({ level: 'error', message: `Mate ${mate.id} connects two flying connectors`, entityId: mate.id, timestamp: new Date().toISOString() });
+                    }
+                }
+
+                // 10.10: Pin alignment (2px threshold)
+                if (fromConn && toConn && fromConn.edgeSide === toConn.edgeSide && fromConn.parent_id === toConn.parent_id) {
+                    const offsetDiff = Math.abs(fromConn.offset - toConn.offset);
+                    if (offsetDiff > 2) {
+                        logs.push({ level: 'warning', message: `Mate ${mate.id}: Pin alignment exceeds threshold (${offsetDiff}px)`, entityId: mate.id, timestamp: new Date().toISOString() });
+                    }
+                }
+            });
+
+            // 10.16: Depth limit and cycle detection
+            const containerMap = new Map((project.data.containers || []).map(c => [c.id, c]));
+            project.data.containers.forEach(c => {
+                const chain = new Set();
+                let current = c;
+                let depth = 0;
+                while (current) {
+                    if (chain.has(current.id)) {
+                        logs.push({ level: 'error', message: `Hierarchical cycle detected in ${c.id}`, entityId: c.id, timestamp: new Date().toISOString() });
+                        break;
+                    }
+                    if (depth > 3) {
+                        logs.push({ level: 'error', message: `Hierarchy too deep in ${c.id} (maximum 4 levels)`, entityId: c.id, timestamp: new Date().toISOString() });
+                        break;
+                    }
+                    chain.add(current.id);
+                    current = current.parent_id ? containerMap.get(current.parent_id) : null;
+                    depth++;
+                }
+            });
+
+            // 10.5: Valid pins (mates only - see 10.5b for wires)
+            project.data.mates.forEach(mate => {
+                const fromConn = project.data.connectors.find(c => c.id === mate.from.connector);
+                const toConn = project.data.connectors.find(c => c.id === mate.to.connector);
+
+                if (fromConn && fromConn.pins && mate.from.pin) {
+                    if (mate.from.pin > fromConn.pins) {
+                        logs.push({ level: 'error', message: `Mate ${mate.id} references invalid pin ${mate.from.pin} for connector ${fromConn.id} (has ${fromConn.pins} pins)`, entityId: mate.from.connector, timestamp: new Date().toISOString() });
+                    }
+                }
+                if (toConn && toConn.pins && mate.to.pin) {
+                    if (mate.to.pin > toConn.pins) {
+                        logs.push({ level: 'error', message: `Mate ${mate.id} references invalid pin ${mate.to.pin} for connector ${toConn.id} (has ${toConn.pins} pins)`, entityId: mate.to.connector, timestamp: new Date().toISOString() });
+                    }
+                }
+            });
+
+            // 10.5b: Valid pins in WIRES (FIX 5)
+            project.data.wires.forEach(wire => {
+                const fromConn = project.data.connectors.find(c => c.id === wire.from?.connector);
+                const toConn = project.data.connectors.find(c => c.id === wire.to?.connector);
+                if (fromConn && fromConn.pins && wire.from?.pin > fromConn.pins) {
+                    logs.push({ level: 'error', message: `Wire ${wire.id} references invalid pin ${wire.from.pin} for connector ${fromConn.id} (has ${fromConn.pins} pins)`, entityId: wire.id, timestamp: new Date().toISOString() });
+                }
+                if (toConn && toConn.pins && wire.to?.pin > toConn.pins) {
+                    logs.push({ level: 'error', message: `Wire ${wire.id} references invalid pin ${wire.to.pin} for connector ${toConn.id} (has ${toConn.pins} pins)`, entityId: wire.id, timestamp: new Date().toISOString() });
+                }
+            });
+
+            return logs;
+        }
+
+
+        // --- LOAD PROJECT ---
+        async function loadProject(jsonData, source = 'load') {
+            try {
+                const incompatibleErrors = hasIncompatibleFields(jsonData);
+                if (incompatibleErrors.length > 0) {
+                    const errorMsg = `This file contains incompatible fields: ${incompatibleErrors.join(', ')}. Manually update the file to the V2.4 format.`;
+                    updateState({
+                        logs: [...state.logs, { level: 'error', message: `Incompatible format: ${errorMsg}`, timestamp: new Date().toISOString(), entityId: null }]
+                    });
+                    showModal("Incompatible format", errorMsg, ['ok']);
+                    return false; // Indicate failure
+                }
+
+                // Perform full validation
+                const validationLogs = validateProject(jsonData);
+                const hasErrors = validationLogs.some(l => l.level === 'error');
+                if (hasErrors) {
+                    updateState({
+                        logs: [...state.logs.filter(l => l.entityId !== null || l.level !== 'error'), ...validationLogs] // Append, potentially replacing old validation errors
+                    });
+                    // Optionally block load on errors, for now just warn and proceed
+                    console.warn("Validation errors found during load:", validationLogs.filter(l => l.level === 'error'));
+                } else {
+                    // Only add validation warnings/info if no errors
+                    updateState({
+                        logs: [...state.logs.filter(l => l.entityId !== null || l.level !== 'error'), ...validationLogs]
+                    });
+                }
+
+                updateState({ project: jsonData, isDirty: false });
+                if (source === 'load') {
+                    updateState({ logs: [...state.logs, { level: 'info', message: 'Project loaded successfully', timestamp: new Date().toISOString(), entityId: null }] });
+                }
+                return true; // Indicate success
+            } catch (e) {
+                console.error("Error loading project:", e);
+                updateState({
+                    logs: [...state.logs, { level: 'error', message: `Failed to load project: ${e.message}`, timestamp: new Date().toISOString(), entityId: null }]
+                });
+                return false;
+            }
+        }
+
+
+        // --- FETCH INITIAL PROJECT ---
+        async function fetchInitialProject() {
+            try {
+                const response = await fetch('./db.json');
+                if (!response.ok) {
+                    if (response.status === 404) {
+                        updateState({ logs: [...state.logs, { level: 'warning', message: 'db.json not found, showing welcome screen.', timestamp: new Date().toISOString(), entityId: null }] });
+                        $welcomeScreen.classList.remove('hidden');
+                        // Check for autosave
+                        try {
+                            const autosaveStr = localStorage.getItem('arnesviz.autosave');
+                            if (autosaveStr) {
+                                const autosaveProject = JSON.parse(autosaveStr);
+                                showModal(
+                                    "Autosave found",
+                                    "An autosave of your previous work was found. Would you like to restore it?",
+                                    ['restore', 'discard_autosave']
+                                );
+                                $modalBtnRestore.onclick = () => {
+                                    loadProject(autosaveProject, 'load');
+                                    $welcomeScreen.classList.add('hidden');
+                                    hideModal();
+                                };
+                                $modalBtnDiscardAutosave.onclick = () => {
+                                    localStorage.removeItem('arnesviz.autosave');
+                                    hideModal();
+                                };
+                            }
+                        } catch (e) {
+                            console.warn("Could not parse autosave:", e);
+                        }
+                    } else {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    return;
+                }
+                const projectJson = await response.json();
+                const success = await loadProject(projectJson, 'load');
+                if (success) {
+                    $welcomeScreen.classList.add('hidden');
+                } else {
+                    // If load failed due to incompatibility, still show welcome screen
+                    $welcomeScreen.classList.remove('hidden');
+                }
+            } catch (e) {
+                console.error("Error fetching initial project:", e);
+                updateState({
+                    logs: [...state.logs, { level: 'error', message: `Failed to fetch db.json: ${e.message}`, timestamp: new Date().toISOString(), entityId: null }]
+                });
+                $welcomeScreen.classList.remove('hidden');
+            }
+        }
+
+        // Start the initial fetch process
+        fetchInitialProject();
+
+
+        // --- EXPORT PROJECT ---
+        async function exportProject() {
+            if (!state.project) {
+                console.error("No project to export.");
+                return;
+            }
+            try {
+                const updatedProject = structuredClone(state.project);
+                updatedProject.metadata.version = (updatedProject.metadata.version || 0) + 1;
+                updatedProject.metadata.lastSave = new Date().toISOString();
+                updatedProject.metadata.savedBy = state.currentUser || updatedProject.metadata.savedBy || "unknown";
+
+                const validationLogs = validateProject(updatedProject);
+                const hasErrors = validationLogs.some(l => l.level === 'error');
+                if (hasErrors) {
+                    // Show validation errors and ask for confirmation
+                    const errorMessages = validationLogs.filter(l => l.level === 'error').map(l => l.message).join('\n');
+                    showModal(
+                        "Validation Errors Found",
+                        `The project has validation errors:\n\n${errorMessages}\n\nDo you still want to export?`,
+                        ['ok', 'cancel'] // OK proceeds with export despite errors
+                    );
+                    $modalBtnOk.onclick = () => {
+                        // Proceed with export even if errors exist
+                        const jsonString = JSON.stringify(updatedProject, null, 2);
+                        const blob = new Blob([jsonString], { type: 'application/json' });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        const projectName = updatedProject.metadata.projectInfo.name || 'project';
+                        const version = updatedProject.metadata.version;
+                        a.download = `${projectName}-v${version}.json`;
+                        document.body.appendChild(a);
+                        a.click();
+                        setTimeout(() => {
+                          document.body.removeChild(a);
+                          window.URL.revokeObjectURL(url);
+                          updateState({
+                              project: updatedProject, // Apply the updated project to state
+                              isDirty: false,
+                              logs: [...state.logs, { level: 'info', message: 'Project exported successfully', timestamp: new Date().toISOString(), entityId: null }]
+                          });
+                        }, 100);
+                        hideModal();
+                    };
+                    $modalBtnCancel.onclick = hideModal;
+                    return; // Don't proceed until modal is resolved
+                }
+
+                // If no errors, proceed directly
+                const jsonString = JSON.stringify(updatedProject, null, 2);
+                const blob = new Blob([jsonString], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                const projectName = updatedProject.metadata.projectInfo.name || 'project';
+                const version = updatedProject.metadata.version;
+                a.download = `${projectName}-v${version}.json`;
+                document.body.appendChild(a);
+                a.click();
+                setTimeout(() => {
+                  document.body.removeChild(a);
+                  window.URL.revokeObjectURL(url);
+                  updateState({
+                      project: updatedProject, // Apply the updated project to state
+                      isDirty: false,
+                      logs: [...state.logs, { level: 'info', message: 'Project exported successfully', timestamp: new Date().toISOString(), entityId: null }]
+                  });
+                }, 100);
+
+            } catch (e) {
+                console.error("Error exporting project:", e);
+                updateState({
+                    logs: [...state.logs, { level: 'error', message: `Failed to export project: ${e.message}`, timestamp: new Date().toISOString(), entityId: null }]
+                });
+            }
+        }
+
+
+        // --- IMPORT PROJECT ---
+        async function importProject(file) {
+            try {
+                const jsonString = await file.text();
+                const jsonData = JSON.parse(jsonString);
+
+                // Check for unsaved changes
+                if (state.isDirty && state.project && state.project.data && (state.project.data.containers.length > 0 || state.project.data.connectors.length > 0 || state.project.data.wires.length > 0 || state.project.data.mates.length > 0)) {
+                    showModal(
+                        "Unsaved changes",
+                        "There are unsaved changes. Do you want to export the current file before importing?",
+                        ['export', 'discard', 'cancel']
+                    );
+                    $modalBtnExport.onclick = async () => {
+                        await exportProject(); // Export first
+                        const success = await loadProject(jsonData, 'import');
+                        if (success) {
+                            $welcomeScreen.classList.add('hidden');
+                        }
+                        hideModal();
+                    };
+                    $modalBtnDiscard.onclick = () => {
+                        const success = loadProject(jsonData, 'import');
+                        if (success) {
+                            $welcomeScreen.classList.add('hidden');
+                        }
+                        hideModal();
+                    };
+                    $modalBtnCancel.onclick = hideModal;
+                    return; // Don't proceed until modal is resolved
+                }
+
+                // Direct import if no conflicts
+                const success = await loadProject(jsonData, 'import');
+                if (success) {
+                    $welcomeScreen.classList.add('hidden');
+                }
+
+            } catch (e) {
+                console.error("Error importing project:", e);
+                updateState({
+                    logs: [...state.logs, { level: 'error', message: `Failed to import project: ${e.message}`, timestamp: new Date().toISOString(), entityId: null }]
+                });
+            }
+        }
+
+
+        // --- AUTOSAVE ---
+        setInterval(() => {
+            if (state.isDirty && state.project) {
+                try {
+                    localStorage.setItem('arnesviz.autosave', JSON.stringify(state.project));
+                    // Optionally log success silently or less frequently
+                } catch (e) {
+                    console.warn("Could not save autosave to localStorage:", e);
+                    updateState({
+                        logs: [...state.logs, {
+                            level: 'warning',
+                            message: `localStorage autosave failed: ${e.message}`,
+                            timestamp: new Date().toISOString(),
+                            entityId: null
+                        }]
+                    });
+                }
+            }
+        }, 30000); // Every 30 seconds
+
 
         // --- Event Handlers ---
+
+        // Welcome Screen Buttons
+        $btnImportWelcome.addEventListener('click', () => {
+            $fileInput.click();
+        });
+
+        $btnCreateWelcome.addEventListener('click', () => {
+            // Simple placeholder for create new project logic
+            const newProject = {
+                metadata: {
+                    projectInfo: { name: "New Project", description: "", startDate: new Date().toISOString().split('T')[0], vehicleModel: "" },
+                    lastSave: new Date().toISOString(),
+                    savedBy: "user",
+                    version: 1,
+                    schema: {
+                        containers: { required: ["id", "type", "position", "size"], recommended: ["name", "owner", "sectionRef"] },
+                        connectors: { required: ["id", "type", "gender", "mountType", "edgeSide", "parent_id", "pins"], recommended: ["name", "owner", "modelRef"] },
+                        wires: { required: ["id", "type", "from", "to", "net"], recommended: ["name", "owner", "gauge", "color", "wireTypeRef"] },
+                        mates: { required: ["id", "type", "from", "to", "net"], recommended: ["name", "owner", "pinMapping"] },
+                        rules: { "id": { "unique": true, "pattern": "^[TCWM]\\d{3}$" }, "containers.parent_id": { "ref": "containers" }, "connectors.parent_id": { "ref": "containers" }, "connectors.modelRef": { "ref": "connectorModels" }, "connectors.owner": { "ref": "people" }, "wires.from.connector": { "ref": "connectors" }, "wires.to.connector": { "ref": "connectors" }, "wires.net": { "ref": "nets" }, "wires.wireTypeRef": { "ref": "wireTypes" }, "wires.owner": { "ref": "people" }, "mates.from.connector": { "ref": "connectors" }, "mates.to.connector": { "ref": "connectors" }, "mates.net": { "ref": "nets" }, "mates.owner": { "ref": "people" } }
+                    },
+                    catalogs: { people: {}, sections: {}, connectorModels: {}, wireTypes: {}, nets: {}, colorPalette: {} }
+                },
+                data: { containers: [], connectors: [], wires: [], mates: [] }
+            };
+            loadProject(newProject, 'import');
+            $welcomeScreen.classList.add('hidden');
+        });
+
+        // File input change
+        $fileInput.addEventListener('change', (event) => {
+            if (event.target.files.length > 0) {
+                importProject(event.target.files[0]);
+                event.target.value = ''; // Reset input
+            }
+        });
+
+        // Config Buttons
+        $btnImportConfig.addEventListener('click', () => {
+            $fileInput.click();
+        });
+
+        $btnExportConfig.addEventListener('click', exportProject);
 
         // View Tabs
         $viewTabs.forEach(tab => {
@@ -377,6 +2006,16 @@
             $btnCollapseLog.textContent = $logPanel.classList.contains('collapsed') ? 'Expand' : 'Collapse';
         });
 
+        // Clear Log Panel
+        $btnClearLog.addEventListener('click', () => {
+            updateState({ logs: [] });
+        });
+
+        // Filter Search Input Events
+        $filterSearch.addEventListener('blur', () => {
+            $filterSearch.style.display = 'none';
+        });
+
         // --- Keyboard Shortcuts (11.7) ---
         document.addEventListener('keydown', (event) => {
             if (event.ctrlKey && event.shiftKey && event.key.toLowerCase() === 'e') {
@@ -385,13 +2024,11 @@
             }
             if (event.ctrlKey && event.key.toLowerCase() === 's') {
                 event.preventDefault();
-                console.log("Export shortcut triggered (Ctrl+S)");
-                // Implement export logic later
+                exportProject();
             }
             if (event.ctrlKey && event.key.toLowerCase() === 'o') {
                 event.preventDefault();
-                console.log("Import shortcut triggered (Ctrl+O)");
-                // Implement import logic later
+                $fileInput.click(); // Trigger import
             }
             if (event.key === 'Escape') {
                 // Close sidebar if open, or deselect entity if details are shown
@@ -402,14 +2039,18 @@
                  }
             }
             if (event.key === 'f' || event.key === 'F') {
-                 // Focus filter logic would go here, triggering filter panel if needed
-                 console.log("Filter shortcut triggered (F)");
-                 // Implement filter focus/open logic later
+                 event.preventDefault(); // Prevent default F behavior
+                 $filterSearch.style.display = 'inline-block';
+                 $filterSearch.focus();
+                 // Implement filter logic later
              }
         });
 
         // Initialize UI based on initial state
         syncStateToUI(state);
+        renderLogs(state.logs); // Initial log render
+        // Apply initial transform
+        applyTransform();
 
     </script>
 </body>
