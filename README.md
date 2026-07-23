@@ -1,4 +1,4 @@
-# VERSION 2.5 – HARNESS VISUALIZER ARCHITECTURE DOCUMENTATION
+# VERSION 2.4 – HARNESS VISUALIZER ARCHITECTURE DOCUMENTATION
 
 ---
 
@@ -37,8 +37,6 @@
 
 1.3.10. As of V2.4, light mode is completely removed, keeping only dark mode with a color palette optimized to avoid visual conflicts with standard electrical wire colors.
 
-1.3.11. As of V2.5, the architecture transitions from single-file to **multi-file modular structure** (`index.html` + `styles.css` + `js/app.js` + `js/data.js` + `js/render.js` + `js/interaction.js`). Validation logic is simplified by removing model-instance consistency checks. The development workflow now involves a coordinated team of specialized AI agents (Orchestrator, Dev, QA, Integrator).
-
 ### 1.4 Technician Workflow
 
 1.4.1. The interface offers two complementary and synchronized views: the **2D graphical canvas (SVG)** and the **data tables**. The user can switch between them or work with both simultaneously. Any change made in one view instantly propagates to the other.
@@ -69,7 +67,7 @@ Elements that do not match are dimmed in the visual view (reduced opacity) and h
 | `connectors.pins` | `modelRef.pins` | If `modelRef` exists and has `pins` |
 | `connectors.gender` | `modelRef.gender` | If `modelRef` exists and has `gender` |
 | `mates.pinMapping` | Default value `"direct"` | When creating a new mate **from the UI**. Existing mates in the JSON keep their original value. |
-| `wires.gaugeUnit` | `"mm2"` | If there is no `wireTypeRef` OR if `wireTypeRef.unit` is missing (global default) |
+| `wires.gaugeUnit` | `"mm2"` | If there is no `wireTypeRef` (global default) |
 
 1.5.3. Autocomplete is triggered:
 - When **creating** a new entity (inferable fields are filled in).
@@ -160,16 +158,7 @@ db.json
 
 2.7.7. **`metadata.uiSettings` does not exist** (removed in V2.1). All interface preferences (zoom, canvas position, filters, active view, container expansion state) are stored in the browser's `localStorage`. See section 11.9.
 
-2.7.8. **Multi-file architecture (V2.5):** The application is delivered as a set of separate files for maintainability and team collaboration:
-- `index.html`: HTML structure only (~100 lines). Loads CSS and JS modules.
-- `styles.css`: All CSS styles (~300 lines).
-- `js/app.js`: State management, initialization, utilities (~500 lines).
-- `js/data.js`: Validation, fetch, import/export, autosave (~700 lines).
-- `js/render.js`: SVG rendering (containers, connectors, wires, selection) (~600 lines).
-- `js/interaction.js`: Drag/drop, zoom, pan, keyboard, modals, sidebar (~600 lines).
-- `db.json`: External project data file.
-
-No bundlers or frameworks are required. Deployment on GitHub Pages consists of uploading all files to the repository root.
+2.7.8. **Single-file architecture (V2.3):** The application is delivered as a single self-contained **`index.html`** file (HTML + CSS embedded in `<style>` + JavaScript embedded in `<script>`) plus the external **`db.json`** file with the project data. No bundlers, frameworks, or backend servers are required. Deployment on GitHub Pages consists of uploading both files to the repository.
 
 ### 2.8 Catalogs (`metadata.catalogs`)
 
@@ -291,7 +280,7 @@ Maps descriptive color names to hexadecimal values for SVG rendering. The `color
 
 2.9.1. The `schema` object defines **dynamic** validation rules that the application interprets automatically when loading or modifying the JSON. This allows changing validation rules without modifying the JavaScript code.
 
-2.9.2. **Implementation (V2.5):** Validation is implemented in **100% custom JavaScript** within `js/data.js`. The `validateProject()` function handles schema rules (required, recommended, pattern, unique, ref) and business rules (sections 10.1–10.12, 10.14–10.16). **Model-instance consistency validation has been removed** to simplify logic; the instance is always the source of truth without cross-checking against catalog values.
+2.9.2. **Implementation (V2.3):** Validation is implemented in **100% custom JavaScript**, without external libraries. The `validateProject()` function handles all rules (required, recommended, pattern, unique, ref) and the business rules (sections 10.1 to 10.12 and 10.14 to 10.16). Neither AJV nor any other validation library is used.
 
 2.9.3. **Unified validation (V2.2):** All validation runs from a **single `validateProject()` function** that:
 1. Iterates over each `data` array (containers, connectors, wires, mates).
@@ -374,8 +363,6 @@ This function is called:
 2.10.3. **`sectionRef` field**: Available **only in containers** (V2.2). Links the container to a functional section defined in `catalogs.sections`. It allows filtering and grouping entities by subsystem.
 
 2.10.4. **Section inheritance in connectors (V2.2):** Connectors **do not have their own `sectionRef` field**. They always inherit the section from their parent container. If the parent container has `sectionRef: "ccu"`, all its descendant connectors belong to the "ccu" section. If the parent container does not have `sectionRef`, it is inherited from the grandparent, and so on up to the root. If no ancestor has `sectionRef`, the connector has no assigned section. The inheritance chain is limited to **4 levels** of depth (see rule 10.16).
-
-> **Note (V2.5):** Section inheritance uses the same 4-level depth limit as container hierarchy. Connectors never have their own `sectionRef`; they always inherit from the nearest ancestor container that has one.
 
 2.10.5. The interface displays the current user name (from `catalogs.people`) and allows changing it from the configuration panel. When saving, `savedBy` is automatically updated with the active user.
 
@@ -595,7 +582,7 @@ They represent a real physical conductor (soldered or crimped wire). They do not
 
 > **Note (V2.3):** The `gauge` field is **recommended but not mandatory**. The wire cross-section is not visually represented in the SVG drawing (visual thickness is controlled by `thickness`), so the absence of `gauge` does not prevent rendering. If `gauge` is missing, a **Warning** is generated in the log panel to remind the user to document it. In the example, all wires have `gauge` filled in as good documentation practice.
 
-> **Note (V2.5):** The `gaugeUnit` field is **optional but recommended**. When creating a new wire via UI, it defaults to `"mm2"`. If `wireTypeRef` exists and has a `unit`, it autocompletes from catalog. User can overwrite. Missing `gaugeUnit` generates a Warning only if `gauge` is present but unit is ambiguous.
+> **Note (V2.3):** The `gaugeUnit` field is **optional**. If the wire has `wireTypeRef` and the wire type has `unit`, `gaugeUnit` is **autocompleted** with that value (inference principle, see 1.5). If there is no `wireTypeRef`, `gaugeUnit` defaults to `"mm2"`. The user can overwrite the autocompleted value.
 
 > **Note (V2.1):** The `gauge` field is a **number** that lives exclusively in the instance. The `wireTypes` catalog **does not contain** the gauge value; it only provides documentary information (insulation, standards, temperature) and the unit (`unit`).
 
@@ -857,7 +844,7 @@ T100 (Motorcycle) [owner: leo]
 
 ### 10.15 Offset in Flying Connectors (V2.3)
 
-10.15.1. If a connector has `mountType: "flying"`, the `offset` field is **completely ignored**. It may be `null`, `0`, or any number. No warning or error is generated. This is intentional tolerance for legacy/manual data.
+10.15.1. If a connector has `mountType: "flying"`, the `offset` field is **ignored** by the system. It can be `null`, `0`, or any numeric value; it has no effect on positioning and does not generate warnings or errors.
 
 10.15.2. This rule is one of **tolerance**: it allows JSON files with inherited or manually edited data not to generate unnecessary noise in the logs for a field that does not apply to flying connectors.
 
@@ -919,14 +906,15 @@ T100 (Motorcycle) [owner: leo]
 - **Deselect:** Left click on empty background, or `Esc` key.
 - Zoom and pan state is saved in `localStorage`.
 
-### 11.2 Minimalist Header (V2.5)
+### 11.2 Minimalist Header (V2.2)
 
-11.2.1. The header contains exactly four zones:
-- **Left**: App name (**ArnesViz**) + open file name.
-- **Center**: View tabs (**Table** | **Visual**).
-- **Right**: **Edit Mode Toggle** (always visible switch) + **Config Button** (⚙).
+11.2.1. The header occupies the full top width of the screen, is static, and contains exactly five zones:
 
-The Edit Mode Toggle allows activating/deactivating edit mode without opening the sidebar. Shortcut: `Ctrl+Shift+E`.
+- **Left**: Application name (**ArnesViz**) followed by the name of the open file (from `metadata.projectInfo.name`).
+- **Center**: View selector with two tabs/buttons: **Table** and **Visual**.
+- **Right (from left to right)**:
+  - **Edit Mode Toggle** (switch always visible, V2.2). Allows activating/deactivating edit mode without opening the configuration panel. Shortcut: `Ctrl+Shift+E`.
+  - **Config Button** (gear icon ⚙). Opens the sidebar in `config` state.
 
 11.2.2. The header has a dark neumorphic aesthetic (see 11.8) and minimum fixed height to not take space away from the work area.
 
@@ -985,7 +973,7 @@ The Edit Mode Toggle allows activating/deactivating edit mode without opening th
 - **Export JSON** button (shortcut `Ctrl+S`).
 - **Delete all** button.
 
-**d) Catalog Management (read-only in V2.5):**
+**d) Catalog Management (read-only in V2.2):**
 - List of people (`catalogs.people`): view.
 - List of sections (`catalogs.sections`): view.
 - List of connector models (`connectorModels`): view.
@@ -1192,16 +1180,6 @@ The Edit Mode Toggle allows activating/deactivating edit mode without opening th
 11.13.3. The header remains fixed. The work area occupies the rest of the height.
 11.13.4. Filters collapse into a button (funnel icon) on small screens. Pressing it deploys a floating panel with the filter controls.
 
-### 11.14 AI Team Workflow (V2.5)
-
-Development is coordinated by four specialized AI agents:
-- **Orchestrator** (Qwen Max): Coordinates tasks, makes architectural decisions, tracks M1-M4 progress.
-- **Dev** (Qwen Coder): Generates and modifies code in specific JS modules.
-- **QA** (Qwen Max): Reviews code for bugs, edge cases, V2.5 compliance.
-- **Integrator** (Qwen Coder): Applies precise diffs/patches to existing code without breaking functionality.
-
-All agents operate in **thinking mode** (not fast mode) to ensure deep reasoning and adherence to spec.
-
 ---
 
 ## 12. NOTES FOR FUTURE VERSIONS
@@ -1218,10 +1196,9 @@ All agents operate in **thinking mode** (not fast mode) to ensure deep reasoning
 12.10. Export to additional formats (PDF, SVG image, BOM).
 12.11. Integration with CAD tools (KiCad, Altium) for netlist import.
 12.12. Real-time multi-user synchronization (collaboration).
-12.13. **Full catalog editing from UI (V2.5):** In V2.5, catalogs remain read-only in the interface. Future versions will implement full CRUD UI for catalog entries with reference protection.
+12.13. **Full catalog editing from the UI (V2.2):** In V2.2/V2.3/V2.4, catalogs are read-only in the interface. Editing is done directly in the JSON file. In a future version, a complete UI will be implemented to add, edit, and delete catalog entries (people, sections, connectorModels, wireTypes, nets, colorPalette) with reference validation and protection against deletion of elements in use. This includes the possibility of adding or removing `signalType` values and customizing the color palette.
 12.14. **Migration to IndexedDB (V2.2):** Autosave and preferences are saved in `localStorage`, which has a limit of ~5-10 MB. For very large projects, it is suggested to migrate to `IndexedDB` (limit ~50 MB+) in a future version.
 12.15. **File migration tool (V2.2):** Currently, files from previous versions (V1.9.1, V2.0, V2.1, V2.2, V2.3) are rejected upon import. In a future version, an automatic migration tool could be implemented to convert old files to the current format.
-12.16. **Multi-file optimization:** Current module split (app/data/render/interaction) may be refined based on bundle size analysis and loading performance metrics.
 
 > **Note:** The old point 12.9 of V1.9.1 (Event/logging system) was promoted to active implementation in section 10.13 of V2.0.
 
@@ -1265,28 +1242,529 @@ All agents operate in **thinking mode** (not fast mode) to ensure deep reasoning
 
 **Version 2.4** – Complete removal of light mode, keeping only dark mode. New color palette optimized to avoid visual conflicts with standard electrical wire colors: background `#0a0a0f`, panels `#141420`-`#1e1e2e`, dark violet accents (`#6366f1`, `#4f46e5`) and fluorescent yellow/gold (`#fbbf24`, `#d97706`). Theme selector removed from configuration panel (section 11.5.2). `arnesviz.theme` removed from localStorage keys (section 11.9.3). Documentation updated in section 11.8 with explanatory note on color choice.
 
-**Version 2.5** – Transition to multi-file architecture (`index.html` + `styles.css` + 4 JS modules). Removal of model-instance consistency validation. Simplified gaugeUnit handling with mm2 default. AI team workflow formalized (Orchestrator/Dev/QA/Integrator in thinking mode). Header simplified to 4 zones. Catalog management remains read-only. Offset tolerance clarified for flying connectors. Section inheritance depth limit enforced. Documentation updated for modular structure.
-
 ---
 
 ## APPENDIX A – COMPLETE EXAMPLE JSON (V2.4)
 
-**Note:** A complete example JSON file (`db.json`) is provided as a separate file. It contains 5 containers, 9 connectors, 3 wires, and 4 mates with all catalogs and schema definitions.
+Below is a complete and valid `db.json` file that implements all the concepts of this documentation. It faithfully represents the data from the V1.9.1 example (5 containers, 9 connectors, 3 wires, 4 mates) enriched with catalogs, schema, and the V2.4 improvements.
+
+> **Note:** The value `version: 5` is illustrative and represents a project that has been saved 5 times.
+
+```json
+{
+  "metadata": {
+    "projectInfo": {
+      "name": "Electric Motorcycle Z1 - Main Harness",
+      "description": "Central harness, from ECU to critical sensors. MotoStudents project.",
+      "startDate": "2026-01-15",
+      "vehicleModel": "EMoto-Z1 Prototype v1"
+    },
+    "lastSave": "2026-07-22T10:00:00Z",
+    "savedBy": "leo",
+    "version": 5,
+    "schema": {
+      "containers": {
+        "required": ["id", "type", "position", "size"],
+        "recommended": ["name", "owner", "sectionRef"]
+      },
+      "connectors": {
+        "required": ["id", "type", "gender", "mountType", "edgeSide", "parent_id", "pins"],
+        "recommended": ["name", "owner", "modelRef"]
+      },
+      "wires": {
+        "required": ["id", "type", "from", "to", "net"],
+        "recommended": ["name", "owner", "gauge", "color", "wireTypeRef"]
+      },
+      "mates": {
+        "required": ["id", "type", "from", "to", "net"],
+        "recommended": ["name", "owner", "pinMapping"]
+      },
+      "rules": {
+        "id": { "unique": true, "pattern": "^[TCWM]\\d{3}$" },
+        "containers.parent_id": { "ref": "containers" },
+        "connectors.parent_id": { "ref": "containers" },
+        "connectors.modelRef": { "ref": "connectorModels" },
+        "connectors.owner": { "ref": "people" },
+        "wires.from.connector": { "ref": "connectors" },
+        "wires.to.connector": { "ref": "connectors" },
+        "wires.net": { "ref": "nets" },
+        "wires.wireTypeRef": { "ref": "wireTypes" },
+        "wires.owner": { "ref": "people" },
+        "mates.from.connector": { "ref": "connectors" },
+        "mates.to.connector": { "ref": "connectors" },
+        "mates.net": { "ref": "nets" },
+        "mates.owner": { "ref": "people" }
+      }
+    },
+    "catalogs": {
+      "people": {
+        "leo": { "name": "Leo" },
+        "martin": { "name": "Martin" },
+        "nico": { "name": "Nico" }
+      },
+      "sections": {
+        "ccu": { "name": "Central Control Unit" },
+        "sensors": { "name": "Safety Sensors" },
+        "power": { "name": "Power Distribution" }
+      },
+      "connectorModels": {
+        "MOLEX_2P_MALE": {
+          "manufacturer": "Molex",
+          "partNumber": "02-99-1021",
+          "pins": 2,
+          "gender": "male",
+          "type": "Wire-to-Board",
+          "datasheetUrl": "http://example.com/molex_2p_m.pdf",
+          "specs": { "maxCurrent": "4A", "voltageRating": "250V" }
+        },
+        "MOLEX_2P_FEMALE": {
+          "manufacturer": "Molex",
+          "partNumber": "02-99-2021",
+          "pins": 2,
+          "gender": "female",
+          "type": "Wire-to-Board",
+          "datasheetUrl": "http://example.com/molex_2p_f.pdf",
+          "specs": { "maxCurrent": "4A", "voltageRating": "250V" }
+        },
+        "GX12_2P_MALE": {
+          "manufacturer": "Various",
+          "partNumber": "GX12-2P-M",
+          "pins": 2,
+          "gender": "male",
+          "type": "Circular",
+          "datasheetUrl": null,
+          "specs": {}
+        },
+        "GX12_2P_FEMALE": {
+          "manufacturer": "Various",
+          "partNumber": "GX12-2P-F",
+          "pins": 2,
+          "gender": "female",
+          "type": "Circular",
+          "datasheetUrl": null,
+          "specs": {}
+        },
+        "GX12_4P_MALE": {
+          "manufacturer": "Various",
+          "partNumber": "GX12-4P-M",
+          "pins": 4,
+          "gender": "male",
+          "type": "Circular",
+          "datasheetUrl": null,
+          "specs": {}
+        },
+        "GX12_4P_FEMALE": {
+          "manufacturer": "Various",
+          "partNumber": "GX12-4P-F",
+          "pins": 4,
+          "gender": "female",
+          "type": "Circular",
+          "datasheetUrl": null,
+          "specs": {}
+        },
+        "MOLEX_5P_MALE": {
+          "manufacturer": "Molex",
+          "partNumber": "02-99-1051",
+          "pins": 5,
+          "gender": "male",
+          "type": "Wire-to-Board",
+          "datasheetUrl": null,
+          "specs": {}
+        },
+        "MOLEX_5P_FEMALE": {
+          "manufacturer": "Molex",
+          "partNumber": "02-99-2051",
+          "pins": 5,
+          "gender": "female",
+          "type": "Wire-to-Board",
+          "datasheetUrl": null,
+          "specs": {}
+        }
+      },
+      "wireTypes": {
+        "AWG22_SHIELDED": {
+          "unit": "AWG",
+          "shielded": true,
+          "insulationType": "XLPO",
+          "temperatureRating": "125°C",
+          "standards": ["SAE J1128"]
+        },
+        "AWG22_UNSHIELDED": {
+          "unit": "AWG",
+          "shielded": false,
+          "insulationType": "XLPO",
+          "temperatureRating": "105°C",
+          "standards": ["SAE J1128"]
+        },
+        "MM2_0.5_SHIELDED": {
+          "unit": "mm2",
+          "shielded": true,
+          "insulationType": "XLPO",
+          "temperatureRating": "125°C",
+          "standards": ["ISO 6722"]
+        }
+      },
+      "nets": {
+        "GND": {
+          "name": "System Ground",
+          "signalType": "ground",
+          "voltage": "0V",
+          "colorCode": "black",
+          "description": "System ground"
+        }
+      },
+      "colorPalette": {
+        "black": "#000000",
+        "red": "#dc2626",
+        "blue": "#2563eb",
+        "green": "#16a34a",
+        "yellow": "#eab308",
+        "orange": "#ea580c",
+        "white": "#f5f5f5",
+        "gray": "#6b7280",
+        "brown": "#92400e",
+        "violet": "#7c3aed",
+        "Green/White": "#22c55e",
+        "White/Green": "#e5e7eb"
+      }
+    }
+  },
+  "data": {
+    "containers": [
+      {
+        "id": "T100",
+        "type": "system",
+        "name": "Electric Motorcycle",
+        "parent_id": null,
+        "designator": "EMOTO-Z1",
+        "position": { "x": 50, "y": 50 },
+        "size": { "width": 2600, "height": 1200 },
+        "owner": "leo",
+        "sectionRef": null,
+        "notes": []
+      },
+      {
+        "id": "T200",
+        "type": "enclosure",
+        "name": "Box 1",
+        "parent_id": "T100",
+        "designator": "BOX1",
+        "position": { "offsetX": 90, "offsetY": 110 },
+        "size": { "width": 950, "height": 1000 },
+        "owner": "martin",
+        "sectionRef": "ccu",
+        "notes": []
+      },
+      {
+        "id": "T201",
+        "type": "enclosure",
+        "name": "Box 2",
+        "parent_id": "T100",
+        "designator": "BOX2",
+        "position": { "offsetX": 1593, "offsetY": 122 },
+        "size": { "width": 950, "height": 1000 },
+        "owner": "nico",
+        "sectionRef": "sensors",
+        "notes": []
+      },
+      {
+        "id": "T300",
+        "type": "pcb",
+        "name": "PCB 1",
+        "parent_id": "T200",
+        "designator": "PCB1",
+        "position": { "offsetX": 80, "offsetY": 100 },
+        "size": { "width": 368, "height": 837 },
+        "owner": "martin",
+        "sectionRef": "ccu",
+        "notes": []
+      },
+      {
+        "id": "T301",
+        "type": "pcb",
+        "name": "PCB 2",
+        "parent_id": "T201",
+        "designator": "PCB2",
+        "position": { "offsetX": 427, "offsetY": 117 },
+        "size": { "width": 472, "height": 817 },
+        "owner": "nico",
+        "sectionRef": "sensors",
+        "notes": []
+      }
+    ],
+    "connectors": [
+      {
+        "id": "C001",
+        "type": "connector",
+        "name": "Molex 2P",
+        "parent_id": "T300",
+        "designator": "J1",
+        "pins": 2,
+        "gender": "male",
+        "mountType": "fixed",
+        "edgeSide": "right",
+        "offset": 100,
+        "size": { "width": 180, "height": 115 },
+        "matedId": "M001",
+        "modelRef": "MOLEX_2P_MALE",
+        "owner": "martin",
+        "notes": []
+      },
+      {
+        "id": "C002",
+        "type": "connector",
+        "name": "Molex 2P",
+        "parent_id": "T200",
+        "designator": "J2",
+        "pins": 2,
+        "gender": "female",
+        "mountType": "flying",
+        "edgeSide": "left",
+        "offset": null,
+        "size": { "width": 180, "height": 115 },
+        "matedId": "M001",
+        "modelRef": "MOLEX_2P_FEMALE",
+        "owner": "martin",
+        "notes": []
+      },
+      {
+        "id": "C003",
+        "type": "connector",
+        "name": "GX12",
+        "parent_id": "T200",
+        "designator": "J3",
+        "pins": 2,
+        "gender": "female",
+        "mountType": "fixed",
+        "edgeSide": "right",
+        "offset": 740,
+        "size": { "width": 180, "height": 115 },
+        "matedId": "M002",
+        "modelRef": "GX12_2P_FEMALE",
+        "owner": "martin",
+        "notes": []
+      },
+      {
+        "id": "C004",
+        "type": "connector",
+        "name": "GX12",
+        "parent_id": "T100",
+        "designator": "J4",
+        "pins": 2,
+        "gender": "male",
+        "mountType": "flying",
+        "edgeSide": "left",
+        "offset": null,
+        "size": { "width": 180, "height": 115 },
+        "matedId": "M002",
+        "modelRef": "GX12_2P_MALE",
+        "owner": "leo",
+        "notes": []
+      },
+      {
+        "id": "C005",
+        "type": "connector",
+        "name": "GX12 4P",
+        "parent_id": "T100",
+        "designator": "J5",
+        "pins": 4,
+        "gender": "male",
+        "mountType": "flying",
+        "edgeSide": "right",
+        "offset": null,
+        "size": { "width": 180, "height": 115 },
+        "matedId": "M003",
+        "modelRef": "GX12_4P_MALE",
+        "owner": "leo",
+        "notes": []
+      },
+      {
+        "id": "C006",
+        "type": "connector",
+        "name": "GX12 4P",
+        "parent_id": "T201",
+        "designator": "J6",
+        "pins": 4,
+        "gender": "female",
+        "mountType": "fixed",
+        "edgeSide": "left",
+        "offset": 728,
+        "size": { "width": 180, "height": 115 },
+        "matedId": "M003",
+        "modelRef": "GX12_4P_FEMALE",
+        "owner": "nico",
+        "notes": []
+      },
+      {
+        "id": "C007",
+        "type": "connector",
+        "name": "Molex 5P",
+        "parent_id": "T201",
+        "designator": "J7",
+        "pins": 5,
+        "gender": "male",
+        "mountType": "flying",
+        "edgeSide": "left",
+        "offset": null,
+        "size": { "width": 180, "height": 115 },
+        "matedId": "M004",
+        "modelRef": "MOLEX_5P_MALE",
+        "owner": "nico",
+        "notes": []
+      },
+      {
+        "id": "C008",
+        "type": "connector",
+        "name": "Molex 5P",
+        "parent_id": "T301",
+        "designator": "J8",
+        "pins": 5,
+        "gender": "female",
+        "mountType": "fixed",
+        "edgeSide": "right",
+        "offset": 71,
+        "size": { "width": 180, "height": 115 },
+        "matedId": "M004",
+        "modelRef": "MOLEX_5P_FEMALE",
+        "owner": "nico",
+        "notes": []
+      },
+      {
+        "id": "C009",
+        "type": "connector",
+        "name": "Molex 2P",
+        "parent_id": "T301",
+        "designator": "J9",
+        "pins": 2,
+        "gender": "female",
+        "mountType": "fixed",
+        "edgeSide": "left",
+        "offset": 251,
+        "size": { "width": 180, "height": 115 },
+        "matedId": null,
+        "modelRef": "MOLEX_2P_FEMALE",
+        "owner": "nico",
+        "notes": [
+          {
+            "date": "2026-07-12",
+            "user": "leo",
+            "text": "Reserve for auxiliary headlight"
+          }
+        ]
+      }
+    ],
+    "wires": [
+      {
+        "id": "W001",
+        "type": "wired",
+        "from": { "connector": "C002", "pin": 1 },
+        "to": { "connector": "C003", "pin": 1 },
+        "net": "GND",
+        "length": 150,
+        "gauge": 22,
+        "gaugeUnit": "AWG",
+        "color": "black",
+        "thickness": 2,
+        "wireTypeRef": "AWG22_SHIELDED",
+        "owner": "martin",
+        "notes": []
+      },
+      {
+        "id": "W002",
+        "type": "wired",
+        "from": { "connector": "C004", "pin": 1 },
+        "to": { "connector": "C005", "pin": 1 },
+        "net": "GND",
+        "length": 400,
+        "gauge": 22,
+        "gaugeUnit": "AWG",
+        "color": "black",
+        "thickness": 2,
+        "wireTypeRef": "AWG22_UNSHIELDED",
+        "owner": "leo",
+        "notes": []
+      },
+      {
+        "id": "W003",
+        "type": "wired",
+        "from": { "connector": "C006", "pin": 1 },
+        "to": { "connector": "C007", "pin": 2 },
+        "net": "GND",
+        "length": 180,
+        "gauge": 22,
+        "gaugeUnit": "AWG",
+        "color": "black",
+        "thickness": 2,
+        "wireTypeRef": "AWG22_SHIELDED",
+        "owner": "nico",
+        "notes": []
+      }
+    ],
+    "mates": [
+      {
+        "id": "M001",
+        "type": "mated",
+        "from": { "connector": "C001", "pin": 1 },
+        "to": { "connector": "C002", "pin": 1 },
+        "net": "GND",
+        "pinMapping": "direct",
+        "owner": "martin",
+        "notes": []
+      },
+      {
+        "id": "M002",
+        "type": "mated",
+        "from": { "connector": "C004", "pin": 1 },
+        "to": { "connector": "C003", "pin": 1 },
+        "net": "GND",
+        "pinMapping": "direct",
+        "owner": "leo",
+        "notes": []
+      },
+      {
+        "id": "M003",
+        "type": "mated",
+        "from": { "connector": "C005", "pin": 1 },
+        "to": { "connector": "C006", "pin": 1 },
+        "net": "GND",
+        "pinMapping": "direct",
+        "owner": "nico",
+        "notes": []
+      },
+      {
+        "id": "M004",
+        "type": "mated",
+        "from": { "connector": "C007", "pin": 2 },
+        "to": { "connector": "C008", "pin": 2 },
+        "net": "GND",
+        "pinMapping": null,
+        "owner": "nico",
+        "notes": []
+      }
+    ]
+  }
+}
+```
+
 ---
 
-## APPENDIX B – SUMMARY OF CHANGES V2.4 → V2.5
+## APPENDIX B – SUMMARY OF CHANGES V2.3 → V2.4
 
-| Change | V2.4 | V2.5 |
-| :--- | :--- | :--- |
-| **Architecture** | Single-file (`index.html`) | Multi-file (HTML + CSS + 4 JS modules) |
-| **Validation** | Model-instance consistency checked | Consistency check removed; instance is truth |
-| **gaugeUnit** | Optional, inferred from catalog | Optional, defaults to "mm2", inferred if available |
-| **Header** | 5 zones | 4 zones (Edit toggle always visible) |
-| **Catalog UI** | Read-only | Read-only (postponed to future) |
-| **Dev Workflow** | Single AI | 4-agent team (Orchestrator/Dev/QA/Integrator) |
-| **AI Mode** | Not specified | Thinking mode for all agents |
-| **Flying offset** | Ignored, no warning | Explicitly documented as tolerated |
+| Change | V2.3 | V2.4 |
+|--------|------|------|
+| **Light mode** | Available as secondary option | **Completely removed** |
+| **Dark mode** | Default theme | **Only available theme** |
+| **UI color palette** | Background #000000, panels #121212-#1e1e1e, accents #ffff00/#ffcc00 | Background #0a0a0f, panels #141420-#1e1e2e, violet accents #6366f1/#4f46e5 and gold #fbbf24/#d97706 |
+| **Theme selector** | Present in config panel (11.5.2) | **Removed** from config panel |
+| **arnesviz.theme** | localStorage key for theme preference | **Removed** from localStorage keys (11.9.3) |
+| **Aesthetic documentation** | Section 11.8 with two themes (dark and light) | Section 11.8 only dark mode + explanatory note on color choice |
+| **Persistence** | Theme saved in localStorage | Fixed theme (dark), no persistence needed |
+| **Incompatible detection** | Message mentions "formato V2.3" | Message updated to "formato V2.4" (11.5.4) |
+| **Future notes** | Mentions V2.2/V2.3 | Updated to V2.2/V2.3/V2.4 (12.13) |
+| **Example JSON** | No structural changes | No changes (same db.json) |
+
+**Reason for change (V2.4):** The previous color palette (fluorescent yellow #ffff00) could cause visual confusion with yellow wires in the harness. The new palette uses dark violet and fluorescent gold, colors that rarely appear in standard electrical wires, allowing clear distinction between interface elements and harness elements.
 
 ---
 
-**END OF DOCUMENTATION – VERSION 2.5**
+**END OF DOCUMENTATION – VERSION 2.4**
